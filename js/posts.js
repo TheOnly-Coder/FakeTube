@@ -1,5 +1,5 @@
 import { getPost, togglePostStar, isPostStarred, addPostComment, onPostCommentsChange } from './db.js';
-import { getCurrentUser, onAuthChange } from './auth.js';
+import { getCurrentUser } from './auth.js';
 import { openAuthModal, STAR_SVG, STAR_OUTLINE_SVG, COMMENT_SVG, CLOSE_SVG } from './components.js';
 import { timeAgo, escapeHtml, getInitials, showToast } from './utils.js';
 
@@ -11,29 +11,29 @@ let unsubscribeComments = null;
  */
 export function postCardHTML(post, options = {}) {
   const { showAuthor = true, showDelete = false } = options;
-  const avatarContent = post.authorPhoto
-    ? `<img src="${escapeHtml(post.authorPhoto)}" alt="">`
-    : getInitials(post.authorName);
+  const avatarContent = post.channelPhoto
+    ? `<img src="${escapeHtml(post.channelPhoto)}" alt="">`
+    : getInitials(post.channelName);
 
   return `
     <div class="post-card" data-post-id="${post.id}">
       ${showAuthor ? `
         <div class="post-card-header">
-          <a href="#/channel/${post.authorId}" class="post-card-avatar">${avatarContent}</a>
+          <a href="#/channel/${post.channelId}" class="post-card-avatar">${avatarContent}</a>
           <div class="post-card-meta">
-            <a href="#/channel/${post.authorId}" class="post-card-author">${escapeHtml(post.authorName)}</a>
+            <a href="#/channel/${post.channelId}" class="post-card-author">${escapeHtml(post.channelName)}</a>
             <span class="post-card-time">${timeAgo(post.createdAt)}</span>
           </div>
           ${showDelete ? `<button class="post-delete-btn" data-post-id="${post.id}" title="Delete post">${CLOSE_SVG}</button>` : ''}
         </div>
       ` : ''}
       <a href="#/post/${post.id}" class="post-card-body">
-        <p class="post-card-text">${escapeHtml(post.text)}</p>
+        <p class="post-card-text">${escapeHtml(post.content)}</p>
       </a>
       <div class="post-card-actions">
         <button class="post-star-btn" data-post-id="${post.id}">
           <span class="post-star-icon">${STAR_OUTLINE_SVG}</span>
-          <span class="post-star-count">${post.starCount || 0}</span>
+          <span class="post-star-count">${post.stars || 0}</span>
           <span class="post-star-label">Star</span>
         </button>
         <a href="#/post/${post.id}" class="post-comment-btn">
@@ -104,30 +104,30 @@ export async function renderPost(container, postId) {
     try { starred = await isPostStarred(postId); } catch {}
   }
 
-  const avatarContent = post.authorPhoto
-    ? `<img src="${escapeHtml(post.authorPhoto)}" alt="">`
-    : getInitials(post.authorName);
+  const avatarContent = post.channelPhoto
+    ? `<img src="${escapeHtml(post.channelPhoto)}" alt="">`
+    : getInitials(post.channelName);
 
-  const isAuthor = user && user.uid === post.authorId;
+  const isAuthor = user && user.uid === post.channelId;
 
   container.innerHTML = `
     <div class="post-page" style="max-width:700px;margin:0 auto;">
       <div class="post-card post-page-card" data-post-id="${post.id}">
         <div class="post-card-header">
-          <a href="#/channel/${post.authorId}" class="post-card-avatar">${avatarContent}</a>
+          <a href="#/channel/${post.channelId}" class="post-card-avatar">${avatarContent}</a>
           <div class="post-card-meta">
-            <a href="#/channel/${post.authorId}" class="post-card-author">${escapeHtml(post.authorName)}</a>
+            <a href="#/channel/${post.channelId}" class="post-card-author">${escapeHtml(post.channelName)}</a>
             <span class="post-card-time">${timeAgo(post.createdAt)}</span>
           </div>
           ${isAuthor ? `<button class="post-delete-btn" id="post-delete-btn" data-post-id="${post.id}" title="Delete post">${CLOSE_SVG}</button>` : ''}
         </div>
         <div class="post-card-body" style="cursor:default;">
-          <p class="post-card-text" style="font-size:16px;">${escapeHtml(post.text)}</p>
+          <p class="post-card-text" style="font-size:16px;">${escapeHtml(post.content)}</p>
         </div>
         <div class="post-card-actions">
           <button class="post-star-btn ${starred ? 'active' : ''}" id="post-star-btn" data-post-id="${post.id}">
             <span class="post-star-icon ${starred ? 'starred' : ''}">${starred ? STAR_SVG : STAR_OUTLINE_SVG}</span>
-            <span class="post-star-count">${post.starCount || 0}</span>
+            <span class="post-star-count">${post.stars || 0}</span>
             <span class="post-star-label">${starred ? 'Starred' : 'Star'}</span>
           </button>
         </div>

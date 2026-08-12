@@ -170,7 +170,7 @@ export async function searchChannels(searchTerm) {
 export async function createPost(postData) {
   const ref = await addDoc(collection(db, 'posts'), {
     ...postData,
-    starCount: 0,
+    stars: 0,
     createdAt: Date.now()
   });
   return ref.id;
@@ -185,7 +185,7 @@ export async function getPost(postId) {
 export async function getPostsByUser(userId, count = 50) {
   const q = query(
     collection(db, 'posts'),
-    where('authorId', '==', userId),
+    where('channelId', '==', userId),
     orderBy('createdAt', 'desc'),
     limit(count)
   );
@@ -221,7 +221,7 @@ export async function getSubscribedPosts(count = 20) {
   for (const chunk of chunks) {
     const q = query(
       collection(db, 'posts'),
-      where('authorId', 'in', chunk),
+      where('channelId', 'in', chunk),
       orderBy('createdAt', 'desc'),
       limit(count)
     );
@@ -238,7 +238,7 @@ export async function deletePost(postId) {
   const post = await getPost(postId);
   if (!post) return;
   const user = getCurrentUser();
-  if (post.authorId !== user?.uid) return;
+  if (post.channelId !== user?.uid) return;
   await deleteDoc(doc(db, 'posts', postId));
   // Delete post comments
   const snap = await getDocs(query(collection(db, 'postComments'), where('postId', '==', postId)));
@@ -258,11 +258,11 @@ export async function togglePostStar(postId) {
 
   if (snap.exists()) {
     await deleteDoc(starRef);
-    await updateDoc(doc(db, 'posts', postId), { starCount: increment(-1) });
+    await updateDoc(doc(db, 'posts', postId), { stars: increment(-1) });
     return false;
   } else {
     await setDoc(starRef, { postId, userId: user.uid, createdAt: Date.now() });
-    await updateDoc(doc(db, 'posts', postId), { starCount: increment(1) });
+    await updateDoc(doc(db, 'posts', postId), { stars: increment(1) });
     return true;
   }
 }

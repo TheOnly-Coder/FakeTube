@@ -372,10 +372,10 @@ function renderPostsPane(postsPane, posts, isMe, me, channelId) {
       postBtn.textContent = 'Posting...';
       try {
         const postId = await createPost({
-          text,
-          authorId: me.uid,
-          authorName: me.displayName,
-          authorPhoto: me.photoURL || ''
+          content: text,
+          channelId: me.uid,
+          channelName: me.displayName,
+          channelPhoto: me.photoURL || ''
         });
         showToast('Post published!');
         // Re-render posts pane to show new post
