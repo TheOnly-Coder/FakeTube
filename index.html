@@ -5,10 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FakeTube</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect rx=%2720%27 width=%27100%27 height=%27100%27 fill=%27%23ff0000%27/><polygon points=%2740,25 40,75 80,50%27 fill=%27white%27/></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Critical styles - always visible even before CSS/JS loads */
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f0f;color:#f1f1f1;line-height:1.5}
+    .header{position:fixed;top:0;left:0;right:0;height:56px;background:#0f0f0f;border-bottom:1px solid #303030;display:flex;align-items:center;padding:0 16px;z-index:1000;gap:16px}
+    .header-logo{display:flex;align-items:center;gap:4px;text-decoration:none;color:#f1f1f1}
+    .logo-icon{width:32px;height:32px;background:#ff0000;border-radius:6px;display:flex;align-items:center;justify-content:center}
+    .logo-icon svg{width:18px;height:18px;fill:#fff;margin-left:2px}
+    .logo-text{font-size:18px;font-weight:700;color:#f1f1f1}
+    .main-content{margin-top:56px;padding:24px;min-height:calc(100vh - 56px)}
+    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center}
+    #toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:3000;display:flex;flex-direction:column;gap:8px}
+    .toast{background:#f1f1f1;color:#0f0f0f;padding:12px 24px;border-radius:4px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);animation:toast-in .3s ease,toast-out .3s ease 2.7s forwards}
+    @keyframes toast-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes toast-out{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(20px)}}
+    .hidden{display:none!important}
+    #initial-loading{text-align:center;padding:80px 24px;color:#aaa}
+    #initial-loading .spinner{width:40px;height:40px;border:3px solid #272727;border-top-color:#f1f1f1;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #initial-error{text-align:center;padding:60px 24px;display:none}
+    #initial-error h2{color:#f1f1f1;margin-bottom:12px}
+    #initial-error p{color:#aaa;max-width:450px;margin:0 auto 12px;line-height:1.6}
+    #initial-error a{color:#3ea6ff}
+  </style>
   <script type="importmap">
   {
     "imports": {
@@ -18,14 +38,40 @@
     }
   }
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div id="app">
-    <header id="header" class="header"></header>
-    <main id="main-content" class="main-content"></main>
-  </div>
+  <header id="header" class="header">
+    <a href="#/" class="header-logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><polygon points="9.5,7.5 9.5,16.5 16.5,12"/></svg></div>
+      <span class="logo-text">FakeTube</span>
+    </a>
+  </header>
+  <main id="main-content" class="main-content">
+    <div id="initial-loading"><div class="spinner"></div><p>Loading FakeTube...</p></div>
+    <div id="initial-error"></div>
+    <noscript><div style="text-align:center;padding:80px 24px;color:#aaa"><h2 style="color:#f1f1f1;margin-bottom:8px">JavaScript required</h2><p>FakeTube needs JavaScript to run. Please enable it.</p></div></noscript>
+  </main>
   <div id="auth-modal" class="modal-overlay hidden"></div>
   <div id="toast-container"></div>
   <script type="module" src="js/app.js"></script>
+  <script>
+    // If JS modules fail to load, show error after 10s
+    setTimeout(function(){
+      var l=document.getElementById('initial-loading');
+      var e=document.getElementById('initial-error');
+      if(l&&l.offsetParent!==null){
+        l.style.display='none';
+        e.style.display='block';
+        e.innerHTML='<h2>FakeTube failed to load</h2>'+
+          '<p>The Firebase SDK could not be loaded. Try refreshing, or check if an extension is blocking <b>gstatic.com</b>.</p>'+
+          '<p>If you just set up the project, you may also need to <a href="https://console.firebase.google.com/" target="_blank">create the Firestore database</a> first.</p>'+
+          '<p style="margin-top:12px"><a href="javascript:location.reload()" class="btn btn-primary">Reload page</a></p>';
+      }
+    },10000);
+  </script>
 </body>
 </html>
