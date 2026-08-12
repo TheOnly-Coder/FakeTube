@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAj9nZ6XGnK_VdGeqHg47QpN8dt1T2C3zQ",
@@ -13,6 +14,14 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Firebase App Check with reCAPTCHA v3 — must be initialized before
+// any Firestore/Auth calls so tokens are attached automatically.
+initializeAppCheck(app, {
+  provider: new ReCaptchaV3Provider('6LeIyoEtAAAAALYDqRR00QtoC_KawQ3DLK5c7nAE'),
+  isTokenAutoRefreshEnabled: true
+});
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export default app;
