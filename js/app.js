@@ -211,17 +211,16 @@ async function bootstrap() {
 }
 
 // Dynamic import loader - loads all Firebase-dependent modules
-// ?v=6 cache-bust to prevent serving stale cached modules
-const V = '?v=6';
+// No ?v= on imports to avoid module instance split with static imports
 async function loadFirebaseModules() {
   const [, auth, components, home, watch, channel, upload] = await Promise.all([
-    import('./firebase-config.js' + V),
-    import('./auth.js' + V),
-    import('./components.js' + V),
-    import('./home.js' + V),
-    import('./watch.js' + V),
-    import('./channel.js' + V),
-    import('./upload.js' + V),
+    import('./firebase-config.js'),
+    import('./auth.js'),
+    import('./components.js'),
+    import('./home.js'),
+    import('./watch.js'),
+    import('./channel.js'),
+    import('./upload.js'),
   ]);
   return { auth, components, home, watch, channel, upload };
 }
