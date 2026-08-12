@@ -72,7 +72,7 @@ export async function renderChannel(container, userId) {
 
   // About pane content
   const joinDate = channelUser.createdAt
-    ? new Date(channelUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    ? new Date(typeof channelUser.createdAt === 'object' && channelUser.createdAt.toDate ? channelUser.createdAt.toDate() : channelUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
     : 'Unknown';
   aboutPane.innerHTML = `
     <div style="max-width:600px;">
@@ -80,7 +80,7 @@ export async function renderChannel(container, userId) {
       <p style="color:#aaa;line-height:1.7;margin-bottom:24px;white-space:pre-wrap;">${escapeHtml(channelUser.bio) || 'No description yet.'}</p>
       <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;color:#f1f1f1;">Stats</h3>
       <div style="display:flex;gap:32px;color:#aaa;font-size:14px;">
-        <div><span style="font-weight:600;color:#f1f1f1;">${formatSubscribers(subCount)}</span> subscribers</div>
+        <div><span style="font-weight:600;color:#f1f1f1;">${formatSubscribers(subCount)}</span></div>
         <div><span style="font-weight:600;color:#f1f1f1;">${videos.length}</span> video${videos.length !== 1 ? 's' : ''}</div>
       </div>
       <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;margin-top:24px;color:#f1f1f1;">Joined</h3>
