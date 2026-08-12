@@ -48,15 +48,48 @@ export async function renderChannel(container, userId) {
         </div>
       </div>
       <div class="channel-tabs">
-        <button class="channel-tab active">Videos</button>
-        <button class="channel-tab">About</button>
+        <button class="channel-tab active" data-tab="videos">Videos</button>
+        <button class="channel-tab" data-tab="about">About</button>
       </div>
-      <div class="video-grid" id="channel-videos"></div>
+      <div id="tab-videos" class="video-grid"></div>
+      <div id="tab-about" class="hidden"></div>
+    </div>
+  `;
+
+  // Tab switching
+  const tabs = container.querySelectorAll('.channel-tab');
+  const videosPane = document.getElementById('tab-videos');
+  const aboutPane = document.getElementById('tab-about');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.tab;
+      videosPane.classList.toggle('hidden', target !== 'videos');
+      aboutPane.classList.toggle('hidden', target !== 'about');
+    });
+  });
+
+  // About pane content
+  const joinDate = channelUser.createdAt
+    ? new Date(channelUser.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    : 'Unknown';
+  aboutPane.innerHTML = `
+    <div style="max-width:600px;">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;color:#f1f1f1;">Description</h3>
+      <p style="color:#aaa;line-height:1.7;margin-bottom:24px;white-space:pre-wrap;">${escapeHtml(channelUser.bio) || 'No description yet.'}</p>
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;color:#f1f1f1;">Stats</h3>
+      <div style="display:flex;gap:32px;color:#aaa;font-size:14px;">
+        <div><span style="font-weight:600;color:#f1f1f1;">${formatSubscribers(subCount)}</span> subscribers</div>
+        <div><span style="font-weight:600;color:#f1f1f1;">${videos.length}</span> video${videos.length !== 1 ? 's' : ''}</div>
+      </div>
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;margin-top:24px;color:#f1f1f1;">Joined</h3>
+      <p style="color:#aaa;font-size:14px;">${joinDate}</p>
     </div>
   `;
 
   // Render videos using inline cards for proper escaping
-  const grid = document.getElementById('channel-videos');
+  const grid = videosPane;
   if (videos.length === 0) {
     grid.innerHTML = '<div class="empty-state"><p>This channel hasn\'t uploaded any videos yet.</p></div>';
   } else {
@@ -95,10 +128,12 @@ export async function renderChannel(container, userId) {
     });
   }
 
-  // Sign out button (only on own channel)
+  // Sign out button (only on own channel — isMe guard is redundant since
+  // the button isn't rendered for others, but kept as defense-in-depth)
   const signOutBtn = document.getElementById('sign-out-btn');
   if (signOutBtn) {
     signOutBtn.addEventListener('click', async () => {
+      if (!isMe) return;
       await logout();
       window.location.hash = '#/';
     });
@@ -107,7 +142,10 @@ export async function renderChannel(container, userId) {
   // Edit profile button (only on own channel)
   const editBtn = document.getElementById('edit-profile-btn');
   if (editBtn) {
-    editBtn.addEventListener('click', () => openEditProfileModal(channelUser, container, userId));
+    editBtn.addEventListener('click', () => {
+      if (!isMe) return;
+      openEditProfileModal(channelUser, container, userId);
+    });
   }
 }
 
