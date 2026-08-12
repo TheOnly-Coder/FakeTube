@@ -40,22 +40,19 @@ export function renderHeader() {
     </div>
     <div class="header-right">
       ${user ? `
-        <button class="btn-upload" id="header-upload-btn" title="Upload">
+        <a href="#/upload" class="btn-upload" title="Upload video">
           ${UPLOAD_SVG}
           <span>Upload</span>
-        </button>
-      ` : ''}
-      ${user ? `
-        <button class="user-avatar-btn" id="user-menu-toggle" title="${escapeHtml(user.displayName)}">
+        </a>
+        <a href="#/channel/${user.uid}" class="user-avatar-btn" title="${escapeHtml(user.displayName)}">
           ${user.photoURL 
             ? `<img src="${escapeHtml(user.photoURL)}" alt="${escapeHtml(user.displayName)}">` 
             : getInitials(user.displayName)}
-        </button>
+        </a>
       ` : `
         <button class="btn btn-outline" id="sign-in-btn">Sign in</button>
       `}
     </div>
-    <div class="user-menu hidden" id="user-menu"></div>
   `;
 
   // Search form
@@ -69,22 +66,8 @@ export function renderHeader() {
   const signInBtn = document.getElementById('sign-in-btn');
   if (signInBtn) signInBtn.addEventListener('click', () => openAuthModal('login'));
 
-  // Upload button
-  const uploadBtn = document.getElementById('header-upload-btn');
-  if (uploadBtn) uploadBtn.addEventListener('click', () => { window.location.hash = '#/upload'; });
-
-  // User menu toggle
-  const menuToggle = document.getElementById('user-menu-toggle');
-  if (menuToggle) menuToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleUserMenu(); });
-
-  // Close menu on outside click
-  document.addEventListener('click', (e) => {
-    const menu = document.getElementById('user-menu');
-    if (menu && !menu.classList.contains('hidden') && !e.target.closest('#user-menu') && !e.target.closest('#user-menu-toggle')) {
-      menu.classList.add('hidden');
-      menuOpen = false;
-    }
-  });
+  // Upload button is now an <a> tag, no JS needed
+  // Profile button is now an <a> tag, no JS needed
 }
 
 function toggleUserMenu() {

@@ -1,5 +1,5 @@
 import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount } from './db.js';
-import { getCurrentUser } from './auth.js';
+import { getCurrentUser, logout } from './auth.js';
 import { videoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials } from './utils.js';
 
@@ -38,7 +38,8 @@ export async function renderChannel(container, userId) {
         </div>
         <div>
           ${isMe 
-            ? '<button class="btn btn-outline" id="edit-profile-btn">Edit profile</button>'
+            ? `<button class="btn btn-outline" id="edit-profile-btn">Edit profile</button>
+               <button class="btn" id="sign-out-btn" style="margin-left:8px;">Sign out</button>`
             : `<button class="btn-notify ${isNotified ? 'active' : ''}" id="channel-notify-btn" data-channel-id="${userId}">
                 ${isNotified ? BELL_SVG : BELL_OFF_SVG}
                 <span>${isNotified ? 'Notified' : 'Notify me'}</span>
@@ -91,6 +92,15 @@ export async function renderChannel(container, userId) {
       if (now) notifyBtn.classList.add('active'); else notifyBtn.classList.remove('active');
       const nc = await getSubscriberCount(userId);
       container.querySelector('.channel-handle').textContent = formatSubscribers(nc);
+    });
+  }
+
+  // Sign out button (only on own channel)
+  const signOutBtn = document.getElementById('sign-out-btn');
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', async () => {
+      await logout();
+      window.location.hash = '#/';
     });
   }
 }

@@ -290,9 +290,11 @@ img {
   gap: 6px;
   font-size: 14px;
   transition: background var(--transition-fast);
+  text-decoration: none;
 }
 .btn-upload:hover {
   background: var(--bg-hover);
+  text-decoration: none;
 }
 .btn-upload svg {
   width: 24px;
@@ -310,13 +312,14 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  text-decoration: none;
   transition: opacity var(--transition-fast);
   overflow: hidden;
-  border: none;
+  flex-shrink: 0;
 }
 .user-avatar-btn:hover {
   opacity: 0.8;
+  text-decoration: none;
 }
 .user-avatar-btn img {
   width: 100%;
