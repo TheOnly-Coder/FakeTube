@@ -1,6 +1,6 @@
 import { getVideo, incrementViews, getComments, addComment, toggleNotify, isNotifying, getVideos, getSubscriberCount, onCommentsChange } from './db.js';
-import { getCurrentUser, onAuthChange, openAuthModal } from './auth.js';
-import { videoCardHTML, sidebarVideoCardHTML, setupVideoCardClicks, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, SEND_SVG } from './components.js';
+import { getCurrentUser, onAuthChange } from './auth.js';
+import { videoCardHTML, sidebarVideoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, SEND_SVG } from './components.js';
 import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials } from './utils.js';
 
 let unsubscribeComments = null;

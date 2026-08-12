@@ -1,6 +1,6 @@
 import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount } from './db.js';
-import { getCurrentUser, openAuthModal } from './auth.js';
-import { videoCardHTML, setupVideoCardClicks, BELL_SVG, BELL_OFF_SVG } from './components.js';
+import { getCurrentUser } from './auth.js';
+import { videoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials } from './utils.js';
 
 export async function renderChannel(container, userId) {
