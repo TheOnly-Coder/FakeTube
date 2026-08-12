@@ -7,12 +7,34 @@ import {
 import { getCurrentUser } from './auth.js';
 import { escapeHtml } from './utils.js';
 
+// ---- Retry helper for Firestore reads ----
+// App Check tokens may not be ready on first attempt (especially iOS Safari).
+// Retries permission-denied errors with a short delay to let the token arrive.
+async function withRetry(fn, retries = 2, delay = 1500) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isPermission = err.code === 'permission-denied' ||
+        (err.message && err.message.includes('permission-denied'));
+      if (isPermission && i < retries) {
+        console.warn(`db: permission-denied on attempt ${i + 1}, retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 // ---- Users ----
 export async function getUser(uid) {
-  const snap = await getDoc(doc(db, 'users', uid));
-  if (!snap.exists()) return null;
-  const data = snap.data();
-  return { id: uid, ...data };
+  return withRetry(async () => {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return { id: uid, ...data };
+  });
 }
 
 export async function updateUser(uid, data) {
@@ -48,26 +70,32 @@ export async function createVideo(videoData) {
 }
 
 export async function getVideo(videoId) {
-  const snap = await getDoc(doc(db, 'videos', videoId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  return withRetry(async () => {
+    const snap = await getDoc(doc(db, 'videos', videoId));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  });
 }
 
 export async function getVideos(count = 50) {
-  const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc'), limit(count));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return withRetry(async () => {
+    const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc'), limit(count));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  });
 }
 
 export async function getVideosByUser(uid, count = 50) {
-  const q = query(
-    collection(db, 'videos'),
-    where('uploaderId', '==', uid),
-    orderBy('createdAt', 'desc'),
-    limit(count)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return withRetry(async () => {
+    const q = query(
+      collection(db, 'videos'),
+      where('uploaderId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(count)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  });
 }
 
 export async function incrementViews(videoId) {
@@ -103,13 +131,15 @@ export async function addComment(videoId, text, user) {
 }
 
 export async function getComments(videoId) {
-  const q = query(
-    collection(db, 'comments'),
-    where('videoId', '==', videoId),
-    orderBy('createdAt', 'asc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return withRetry(async () => {
+    const q = query(
+      collection(db, 'comments'),
+      where('videoId', '==', videoId),
+      orderBy('createdAt', 'asc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  });
 }
 
 export function onCommentsChange(videoId, callback) {
@@ -157,18 +187,23 @@ export async function toggleNotify(channelId) {
 export async function isNotifying(channelId) {
   const user = getCurrentUser();
   if (!user) return false;
-  const snap = await getDoc(doc(db, 'subscribers', `${channelId}_${user.uid}`));
-  return snap.exists();
+  return withRetry(async () => {
+    const snap = await getDoc(doc(db, 'subscribers', `${channelId}_${user.uid}`));
+    return snap.exists();
+  });
 }
 
 export async function getSubscriberCount(channelId) {
-  const snap = await getDoc(doc(db, 'users', channelId));
-  if (!snap.exists()) return 0;
-  return snap.data().subscriberCount || 0;
+  return withRetry(async () => {
+    const snap = await getDoc(doc(db, 'users', channelId));
+    if (!snap.exists()) return 0;
+    return snap.data().subscriberCount || 0;
+  });
 }
 
 // ---- Search ----
 export async function searchVideos(searchTerm) {
+  // getVideos already has retry built in
   const allVideos = await getVideos(200);
   const term = searchTerm.toLowerCase();
   return allVideos.filter(v =>
@@ -180,11 +215,13 @@ export async function searchVideos(searchTerm) {
 }
 
 export async function searchChannels(searchTerm) {
-  const snap = await getDocs(collection(db, 'users'));
-  const term = searchTerm.toLowerCase();
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(u => u.displayName && u.displayName.toLowerCase().includes(term));
+  return withRetry(async () => {
+    const snap = await getDocs(collection(db, 'users'));
+    const term = searchTerm.toLowerCase();
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => u.displayName && u.displayName.toLowerCase().includes(term));
+  });
 }
 
 // ---- Posts ----
@@ -198,20 +235,24 @@ export async function createPost(postData) {
 }
 
 export async function getPost(postId) {
-  const snap = await getDoc(doc(db, 'posts', postId));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  return withRetry(async () => {
+    const snap = await getDoc(doc(db, 'posts', postId));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  });
 }
 
 export async function getPostsByUser(userId, count = 50) {
-  const q = query(
-    collection(db, 'posts'),
-    where('channelId', '==', userId),
-    orderBy('createdAt', 'desc'),
-    limit(count)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return withRetry(async () => {
+    const q = query(
+      collection(db, 'posts'),
+      where('channelId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(count)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  });
 }
 
 /**
@@ -222,37 +263,39 @@ export async function getSubscribedPosts(count = 20) {
   const user = getCurrentUser();
   if (!user) return [];
 
-  // Get all subscriptions for current user
-  const subSnap = await getDocs(query(
-    collection(db, 'subscribers'),
-    where('subscriberId', '==', user.uid)
-  ));
-  if (subSnap.empty) return [];
+  return withRetry(async () => {
+    // Get all subscriptions for current user
+    const subSnap = await getDocs(query(
+      collection(db, 'subscribers'),
+      where('subscriberId', '==', user.uid)
+    ));
+    if (subSnap.empty) return [];
 
-  const channelIds = subSnap.docs.map(d => d.data().channelId);
-  if (channelIds.length === 0) return [];
+    const channelIds = subSnap.docs.map(d => d.data().channelId);
+    if (channelIds.length === 0) return [];
 
-  // Firestore 'in' queries support max 30 items
-  const chunks = [];
-  for (let i = 0; i < channelIds.length; i += 30) {
-    chunks.push(channelIds.slice(i, i + 30));
-  }
+    // Firestore 'in' queries support max 30 items
+    const chunks = [];
+    for (let i = 0; i < channelIds.length; i += 30) {
+      chunks.push(channelIds.slice(i, i + 30));
+    }
 
-  let allPosts = [];
-  for (const chunk of chunks) {
-    const q = query(
-      collection(db, 'posts'),
-      where('channelId', 'in', chunk),
-      orderBy('createdAt', 'desc'),
-      limit(count)
-    );
-    const snap = await getDocs(q);
-    allPosts.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }
+    let allPosts = [];
+    for (const chunk of chunks) {
+      const q = query(
+        collection(db, 'posts'),
+        where('channelId', 'in', chunk),
+        orderBy('createdAt', 'desc'),
+        limit(count)
+      );
+      const snap = await getDocs(q);
+      allPosts.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }
 
-  // Sort all by newest first and trim
-  allPosts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  return allPosts.slice(0, count);
+    // Sort all by newest first and trim
+    allPosts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return allPosts.slice(0, count);
+  });
 }
 
 export async function deletePost(postId) {
@@ -301,8 +344,10 @@ export async function togglePostStar(postId) {
 export async function isPostStarred(postId) {
   const user = getCurrentUser();
   if (!user) return false;
-  const snap = await getDoc(doc(db, 'postStars', `${postId}_${user.uid}`));
-  return snap.exists();
+  return withRetry(async () => {
+    const snap = await getDoc(doc(db, 'postStars', `${postId}_${user.uid}`));
+    return snap.exists();
+  });
 }
 
 // ---- Post Comments ----

@@ -170,6 +170,17 @@ async function bootstrap() {
   const { renderChannel, renderChannelSearch } = modules.channel;
   const { renderPost } = modules.posts;
   const { renderUpload } = modules.upload;
+  const { waitForAppCheck } = modules.firebaseConfig;
+
+  // Wait for App Check token before any Firestore calls.
+  // On iOS Safari, reCAPTCHA v3 initialization can be slow due to
+  // ITP and network latency. Without waiting, Firestore queries fire
+  // before the App Check token is ready and get rejected.
+  // We still proceed even if it fails — the token may arrive later.
+  const appCheckOk = await waitForAppCheck({ attempts: 4, delay: 2000 });
+  if (!appCheckOk) {
+    console.warn('App Check token not obtained yet — proceeding anyway. If data fails to load, try reloading the page.');
+  }
 
   // Navigation
   async function navigate() {
@@ -233,7 +244,7 @@ async function bootstrap() {
 // Dynamic import loader - loads all Firebase-dependent modules
 // No ?v= on imports to avoid module instance split with static imports
 async function loadFirebaseModules() {
-  const [, auth, components, home, watch, channel, posts, upload] = await Promise.all([
+  const [firebaseConfig, auth, components, home, watch, channel, posts, upload] = await Promise.all([
     import('./firebase-config.js'),
     import('./auth.js'),
     import('./components.js'),
@@ -243,7 +254,7 @@ async function loadFirebaseModules() {
     import('./posts.js'),
     import('./upload.js'),
   ]);
-  return { auth, components, home, watch, channel, posts, upload };
+  return { firebaseConfig, auth, components, home, watch, channel, posts, upload };
 }
 
 // Start the app

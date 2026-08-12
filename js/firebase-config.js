@@ -2,7 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, getToken, getAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAj9nZ6XGnK_VdGeqHg47QpN8dt1T2C3zQ",
@@ -25,3 +25,30 @@ initializeAppCheck(app, {
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export default app;
+
+/**
+ * Explicitly obtain an App Check token before making Firestore calls.
+ * On iOS Safari, reCAPTCHA v3 initialization can be slow (ITP, network
+ * latency). Without waiting, Firestore queries fire without a valid
+ * App Check token and get rejected by security rules.
+ *
+ * Retries up to `attempts` times with `delay` ms between each try.
+ * Returns true if a token was obtained, false if all retries failed.
+ */
+export async function waitForAppCheck({ attempts = 3, delay = 2000 } = {}) {
+  const appCheck = getAppCheck(app);
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await getToken(appCheck, /* forceRefresh */ false);
+      console.log('App Check: token obtained' + (i > 0 ? ` (retry ${i})` : ''));
+      return true;
+    } catch (err) {
+      console.warn(`App Check: token attempt ${i + 1}/${attempts} failed:`, err.message || err);
+      if (i < attempts - 1) {
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  console.error('App Check: all token attempts failed');
+  return false;
+}
