@@ -1,7 +1,7 @@
-import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount } from './db.js';
+import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount, updateUser } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
-import { videoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG } from './components.js';
-import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials } from './utils.js';
+import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG } from './components.js';
+import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast } from './utils.js';
 
 export async function renderChannel(container, userId) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
@@ -103,4 +103,60 @@ export async function renderChannel(container, userId) {
       window.location.hash = '#/';
     });
   }
+
+  // Edit profile button (only on own channel)
+  const editBtn = document.getElementById('edit-profile-btn');
+  if (editBtn) {
+    editBtn.addEventListener('click', () => openEditProfileModal(channelUser, container, userId));
+  }
+}
+
+function openEditProfileModal(channelUser, pageContainer, userId) {
+  const modal = document.getElementById('auth-modal');
+  modal.classList.remove('hidden');
+  modal.innerHTML = `
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close-btn">${CLOSE_SVG}</button>
+      <h2 style="margin-bottom:20px;color:#f1f1f1;">Edit Profile</h2>
+      <form class="auth-form" id="edit-profile-form">
+        <input type="text" id="edit-name" placeholder="Display name" required value="${escapeHtml(channelUser.displayName || '')}">
+        <textarea id="edit-bio" placeholder="Bio (optional)" rows="3" style="width:100%;background:#272727;border:1px solid #303030;border-radius:4px;padding:12px 16px;color:#f1f1f1;font-size:14px;resize:vertical;font-family:inherit;margin-bottom:12px;">${escapeHtml(channelUser.bio || '')}</textarea>
+        <input type="url" id="edit-photo" placeholder="Photo URL (optional)" value="${escapeHtml(channelUser.photoURL || '')}">
+        <button type="submit" class="auth-submit-btn" id="edit-submit-btn">Save changes</button>
+        <div class="auth-error hidden" id="edit-error"></div>
+      </form>
+    </div>
+  `;
+
+  document.getElementById('modal-close-btn').addEventListener('click', () => modal.classList.add('hidden'));
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+
+  document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('edit-name').value.trim();
+    const bio = document.getElementById('edit-bio').value.trim();
+    const photo = document.getElementById('edit-photo').value.trim();
+    const errEl = document.getElementById('edit-error');
+    const btn = document.getElementById('edit-submit-btn');
+
+    if (!name) {
+      errEl.textContent = 'Display name is required.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    try {
+      await updateUser(userId, { displayName: name, bio, photoURL: photo });
+      modal.classList.add('hidden');
+      showToast('Profile updated!');
+      renderChannel(pageContainer, userId);
+    } catch (err) {
+      errEl.textContent = err.message || 'Failed to save.';
+      errEl.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Save changes';
+    }
+  });
 }
