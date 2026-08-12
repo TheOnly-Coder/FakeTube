@@ -16,10 +16,14 @@ const SEND_SVG = `<svg viewBox="0 0 24 24"><path d="M2.01,21L23,12L2.01,3L2,10l1
 const USER_SVG = `<svg viewBox="0 0 24 24"><path d="M12,12c2.21,0,4-1.79,4-4s-1.79-4-4-4S8,5.79,8,8S9.79,12,12,12z M12,14c-2.67,0-8,1.34-8,4v2h16v-2C20,15.34,14.67,14,12,14z"/></svg>`;
 const CHANNEL_SVG = `<svg viewBox="0 0 24 24"><path d="M4,6H2v14c0,1.1,0.9,2,2,2h14v-2H4V6z M20,2H8c-1.1,0-2,0.9-2,2v12c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V4C22,2.9,21.1,2,20,2z M20,16H8V4h12V16z"/></svg>`;
 const SIGNOUT_SVG = `<svg viewBox="0 0 24 24"><path d="M17,7l-1.41,1.41L18.17,11H8v2h10.17l-2.58,2.58L17,17l5-5L17,7z M4,5h8V3H4C2.9,3,2,3.9,2,5v14c0,1.1,0.9,2,2,2h8v-2H4V5z"/></svg>`;
+const VIDEO_SVG = `<svg viewBox="0 0 24 24"><path d="M17,10.5V7c0-.55-.45-1-1-1H4c-.55,0-1,.45-1,1v10c0,.55.45,1,1,1h12c.55,0,1-.45,1-1v-3.5l4,4v-11L17,10.5z"/></svg>`;
 
-export { SEARCH_SVG, UPLOAD_SVG, CLOSE_SVG, MENU_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, SEND_SVG, USER_SVG, CHANNEL_SVG, SIGNOUT_SVG };
+export { SEARCH_SVG, UPLOAD_SVG, CLOSE_SVG, MENU_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, SEND_SVG, USER_SVG, CHANNEL_SVG, SIGNOUT_SVG, VIDEO_SVG };
 
 let menuOpen = false;
+let searchType = 'videos'; // 'videos' or 'channels'
+
+export function getSearchType() { return searchType; }
 
 export function renderHeader() {
   const header = document.getElementById('header');
@@ -33,10 +37,22 @@ export function renderHeader() {
       </a>
     </div>
     <div class="header-center">
-      <form class="search-form" id="search-form">
-        <input type="text" class="search-input" id="search-input" placeholder="Search" autocomplete="off">
-        <button type="submit" class="search-btn">${SEARCH_SVG}</button>
-      </form>
+      <div class="search-wrapper" id="search-wrapper">
+        <form class="search-form" id="search-form">
+          <input type="text" class="search-input" id="search-input" placeholder="Search" autocomplete="off">
+          <button type="submit" class="search-btn">${SEARCH_SVG}</button>
+        </form>
+        <div class="search-dropdown hidden" id="search-dropdown">
+          <button class="search-dropdown-item ${searchType === 'videos' ? 'active' : ''}" data-search-type="videos">
+            ${VIDEO_SVG}
+            <span>Search in videos</span>
+          </button>
+          <button class="search-dropdown-item ${searchType === 'channels' ? 'active' : ''}" data-search-type="channels">
+            ${CHANNEL_SVG}
+            <span>Search in channels</span>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="header-right">
       ${user ? `
@@ -56,10 +72,40 @@ export function renderHeader() {
   `;
 
   // Search form
-  document.getElementById('search-form').addEventListener('submit', (e) => {
+  const searchForm = document.getElementById('search-form');
+  const searchInput = document.getElementById('search-input');
+  const searchDropdown = document.getElementById('search-dropdown');
+  const searchWrapper = document.getElementById('search-wrapper');
+
+  // Show/hide dropdown on input focus
+  searchInput.addEventListener('focus', () => searchDropdown.classList.remove('hidden'));
+  document.addEventListener('click', (e) => {
+    if (!searchWrapper.contains(e.target)) searchDropdown.classList.add('hidden');
+  });
+
+  // Dropdown item selection
+  searchDropdown.querySelectorAll('.search-dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      searchType = item.dataset.searchType;
+      searchDropdown.querySelectorAll('.search-dropdown-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      searchDropdown.classList.add('hidden');
+      searchInput.focus();
+    });
+  });
+
+  // Search submit
+  searchForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const q = document.getElementById('search-input').value.trim();
-    if (q) window.location.hash = `#/search/${encodeURIComponent(q)}`;
+    const q = searchInput.value.trim();
+    if (!q) return;
+    searchDropdown.classList.add('hidden');
+    if (searchType === 'channels') {
+      window.location.hash = `#/search/channels/${encodeURIComponent(q)}`;
+    } else {
+      window.location.hash = `#/search/${encodeURIComponent(q)}`;
+    }
   });
 
   // Sign in button

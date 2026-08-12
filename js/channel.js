@@ -1,4 +1,4 @@
-import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount, updateUser } from './db.js';
+import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
 import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast } from './utils.js';
@@ -197,4 +197,40 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
       btn.textContent = 'Save changes';
     }
   });
+}
+
+export async function renderChannelSearch(container, searchTerm) {
+  container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+
+  const channels = await searchChannels(searchTerm);
+
+  container.innerHTML = `
+    <div style="margin-bottom:24px;">
+      <h2 style="font-size:20px;font-weight:600;color:#f1f1f1;">Channel results for "${escapeHtml(searchTerm)}"</h2>
+    </div>
+    <div class="channel-search-results" id="channel-search-results"></div>
+  `;
+
+  const results = document.getElementById('channel-search-results');
+
+  if (channels.length === 0) {
+    results.innerHTML = '<div class="empty-state"><p>No channels found matching your search.</p></div>';
+    return;
+  }
+
+  results.innerHTML = channels.map(ch => {
+    const avatar = ch.photoURL
+      ? `<img src="${escapeHtml(ch.photoURL)}" alt="">`
+      : getInitials(ch.displayName);
+    const subs = formatSubscribers(ch.subscriberCount || 0);
+    return `
+      <a href="#/channel/${ch.id}" class="channel-search-item">
+        <div class="channel-search-avatar">${avatar}</div>
+        <div class="channel-search-info">
+          <div class="channel-search-name">${escapeHtml(ch.displayName)}</div>
+          <div class="channel-search-subs">${subs}</div>
+        </div>
+      </a>
+    `;
+  }).join('');
 }

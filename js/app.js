@@ -17,8 +17,11 @@ function parseRoute() {
 
   if (hash === '#/upload') return { page: 'upload' };
 
-  const searchMatch = hash.match(/^#\/search\/(.+)$/);
-  if (searchMatch) return { page: 'search', term: decodeURIComponent(searchMatch[1]) };
+  const searchMatch = hash.match(/^#\/search\/channels\/(.+)$/);
+  if (searchMatch) return { page: 'search-channels', term: decodeURIComponent(searchMatch[1]) };
+
+  const searchVideoMatch = hash.match(/^#\/search\/(.+)$/);
+  if (searchVideoMatch) return { page: 'search', term: decodeURIComponent(searchVideoMatch[1]) };
 
   return { page: 'home' };
 }
@@ -154,7 +157,7 @@ async function bootstrap() {
   const { renderHeader } = modules.components;
   const { renderHome } = modules.home;
   const { renderWatch } = modules.watch;
-  const { renderChannel } = modules.channel;
+  const { renderChannel, renderChannelSearch } = modules.channel;
   const { renderUpload } = modules.upload;
 
   // Navigation
@@ -179,6 +182,9 @@ async function bootstrap() {
           break;
         case 'search':
           await renderHome(mainContent, r.term);
+          break;
+        case 'search-channels':
+          await renderChannelSearch(mainContent, r.term);
           break;
         case 'tutorial':
           renderTutorial(mainContent);

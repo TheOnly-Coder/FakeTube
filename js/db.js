@@ -156,3 +156,11 @@ export async function searchVideos(searchTerm) {
     (v.uploaderName && v.uploaderName.toLowerCase().includes(term))
   );
 }
+
+export async function searchChannels(searchTerm) {
+  const snap = await getDocs(collection(db, 'users'));
+  const term = searchTerm.toLowerCase();
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(u => u.displayName && u.displayName.toLowerCase().includes(term));
+}

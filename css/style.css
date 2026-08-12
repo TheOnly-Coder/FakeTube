@@ -216,6 +216,123 @@ img {
   fill: var(--text-primary);
 }
 
+/* Search dropdown */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  flex: 1;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px 0;
+  z-index: 1001;
+  box-shadow: var(--shadow-lg);
+}
+
+.search-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-align: left;
+}
+
+.search-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.search-dropdown-item.active {
+  color: var(--text-primary);
+}
+
+.search-dropdown-item.active::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  background: var(--text-primary);
+  border-radius: 2px;
+}
+
+.search-dropdown-item svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Channel search results */
+.channel-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.channel-search-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.channel-search-item:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+
+.channel-search-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  color: white;
+  font-size: 24px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.channel-search-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.channel-search-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.channel-search-subs {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
 .header-right {
   display: flex;
   align-items: center;
