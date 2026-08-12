@@ -24,9 +24,23 @@ export async function renderChannel(container, userId) {
     ? `<img src="${escapeHtml(channelUser.photoURL)}" alt="">` 
     : getInitials(channelUser.displayName);
 
+  // Resolve banner class
+  const bannerVal = channelUser.banner || '';
+  let bannerHTML;
+  if (bannerVal.includes('.')) {
+    // It's an image URL
+    bannerHTML = `<div class="channel-banner" style="background-image:url('${escapeHtml(bannerVal)}')"></div>`;
+  } else if (bannerVal) {
+    // It's a preset name
+    bannerHTML = `<div class="channel-banner banner-${escapeHtml(bannerVal)}"></div>`;
+  } else {
+    // No banner set, use default gradient
+    bannerHTML = `<div class="channel-banner banner-default"></div>`;
+  }
+
   container.innerHTML = `
     <div class="channel-page">
-      <div class="channel-banner"></div>
+      ${bannerHTML}
       <div class="channel-header">
         <div class="channel-header-left">
           <div class="channel-page-avatar">${avatarContent}</div>
@@ -152,14 +166,62 @@ export async function renderChannel(container, userId) {
 function openEditProfileModal(channelUser, pageContainer, userId) {
   const modal = document.getElementById('auth-modal');
   modal.classList.remove('hidden');
+
+  const currentBanner = channelUser.banner || '';
+  const presets = [
+    { id: '', label: 'Default' },
+    { id: 'gradientSunset', label: 'Sunset' },
+    { id: 'gradientOcean', label: 'Ocean' },
+    { id: 'gradientAurora', label: 'Aurora' },
+    { id: 'gradientMidnight', label: 'Midnight' },
+    { id: 'gradientCherry', label: 'Cherry' },
+    { id: 'gradientForest', label: 'Forest' },
+    { id: 'gradientLavender', label: 'Lavender' },
+    { id: 'gradientFire', label: 'Fire' },
+    { id: 'checkersRed', label: 'Checkers Red' },
+    { id: 'checkersBlue', label: 'Checkers Blue' },
+    { id: 'checkersGreen', label: 'Checkers Green' },
+    { id: 'checkersPurple', label: 'Checkers Purple' },
+    { id: 'stripesCyan', label: 'Stripes Cyan' },
+    { id: 'stripesRed', label: 'Stripes Red' },
+    { id: 'dotsMonochrome', label: 'Dots Mono' },
+    { id: 'dotsColor', label: 'Dots Color' },
+    { id: 'solidBlack', label: 'Solid Black' },
+    { id: 'solidDark', label: 'Solid Dark' },
+  ];
+
+  const isPreset = currentBanner && !currentBanner.includes('.');
+  const isImage = currentBanner && currentBanner.includes('.');
+
   modal.innerHTML = `
-    <div class="modal-content">
+    <div class="modal-content" style="max-height:90vh;overflow-y:auto;">
       <button class="modal-close" id="modal-close-btn">${CLOSE_SVG}</button>
       <h2 style="margin-bottom:20px;color:#f1f1f1;">Edit Profile</h2>
       <form class="auth-form" id="edit-profile-form">
         <input type="text" id="edit-name" placeholder="Display name" required value="${escapeHtml(channelUser.displayName || '')}">
         <textarea id="edit-bio" placeholder="Bio (optional)" rows="3" style="width:100%;background:#272727;border:1px solid #303030;border-radius:4px;padding:12px 16px;color:#f1f1f1;font-size:14px;resize:vertical;font-family:inherit;margin-bottom:12px;">${escapeHtml(channelUser.bio || '')}</textarea>
         <input type="url" id="edit-photo" placeholder="Photo URL (optional)" value="${escapeHtml(channelUser.photoURL || '')}">
+        
+        <div style="margin-top:20px;margin-bottom:8px;color:#f1f1f1;font-size:14px;font-weight:500;">Banner</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button type="button" class="btn btn-outline banner-mode-btn ${!isImage ? 'active' : ''}" id="banner-mode-presets" style="flex:1;padding:8px;font-size:13px;">Preset</button>
+          <button type="button" class="btn btn-outline banner-mode-btn ${isImage ? 'active' : ''}" id="banner-mode-image" style="flex:1;padding:8px;font-size:13px;">Image URL</button>
+        </div>
+        <div id="banner-presets-panel" style="margin-bottom:12px;">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:180px;overflow-y:auto;padding:4px;">
+            ${presets.map(p => `
+              <button type="button" class="banner-preset-swatch ${currentBanner === p.id ? 'selected' : ''}" data-preset="${p.id}" title="${p.label}" style="height:48px;border-radius:6px;border:2px solid ${currentBanner === p.id ? '#3ea6ff' : '#303030'};cursor:pointer;overflow:hidden;background-size:cover;background-position:center;">
+                <div class="channel-banner banner-${p.id || 'default'}" style="height:100%;width:100%;border-radius:0;margin:0;padding:0;"></div>
+              </button>
+            `).join('')}
+          </div>
+          <input type="hidden" id="edit-banner-preset" value="${escapeHtml(isPreset ? currentBanner : '')}">
+        </div>
+        <div id="banner-image-panel" class="hidden" style="margin-bottom:12px;">
+          <input type="url" id="edit-banner-image" placeholder="Paste an image URL (e.g. https://example.com/banner.png)" value="${escapeHtml(isImage ? currentBanner : '')}">
+          <div id="banner-image-preview" style="margin-top:8px;height:80px;border-radius:6px;overflow:hidden;background-size:cover;background-position:center;${isImage ? `background-image:url('${escapeHtml(currentBanner)}')` : ''}"></div>
+        </div>
+
         <button type="submit" class="auth-submit-btn" id="edit-submit-btn">Save changes</button>
         <div class="auth-error hidden" id="edit-error"></div>
       </form>
@@ -168,6 +230,50 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
 
   document.getElementById('modal-close-btn').addEventListener('click', () => modal.classList.add('hidden'));
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+
+  // Banner mode toggle
+  const presetsPanel = document.getElementById('banner-presets-panel');
+  const imagePanel = document.getElementById('banner-image-panel');
+  const modePresetsBtn = document.getElementById('banner-mode-presets');
+  const modeImageBtn = document.getElementById('banner-mode-image');
+
+  modePresetsBtn.addEventListener('click', () => {
+    presetsPanel.classList.remove('hidden');
+    imagePanel.classList.add('hidden');
+    modePresetsBtn.classList.add('active');
+    modeImageBtn.classList.remove('active');
+  });
+  modeImageBtn.addEventListener('click', () => {
+    presetsPanel.classList.add('hidden');
+    imagePanel.classList.remove('hidden');
+    modeImageBtn.classList.add('active');
+    modePresetsBtn.classList.remove('active');
+  });
+
+  // Preset swatch selection
+  presetsPanel.querySelectorAll('.banner-preset-swatch').forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      presetsPanel.querySelectorAll('.banner-preset-swatch').forEach(s => {
+        s.classList.remove('selected');
+        s.style.borderColor = '#303030';
+      });
+      swatch.classList.add('selected');
+      swatch.style.borderColor = '#3ea6ff';
+      document.getElementById('edit-banner-preset').value = swatch.dataset.preset;
+    });
+  });
+
+  // Image URL live preview
+  const imageInput = document.getElementById('edit-banner-image');
+  const imagePreview = document.getElementById('banner-image-preview');
+  imageInput.addEventListener('input', () => {
+    const url = imageInput.value.trim();
+    if (url) {
+      imagePreview.style.backgroundImage = `url('${url}')`;
+    } else {
+      imagePreview.style.backgroundImage = '';
+    }
+  });
 
   document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -183,10 +289,18 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
       return;
     }
 
+    // Resolve banner value
+    let banner = '';
+    if (!imagePanel.classList.contains('hidden')) {
+      banner = imageInput.value.trim(); // URL or empty
+    } else {
+      banner = document.getElementById('edit-banner-preset').value; // preset id or empty
+    }
+
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-      await updateUser(userId, { displayName: name, bio, photoURL: photo });
+      await updateUser(userId, { displayName: name, bio, photoURL: photo, banner });
       modal.classList.add('hidden');
       showToast('Profile updated!');
       renderChannel(pageContainer, userId);
