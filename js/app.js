@@ -1,14 +1,9 @@
-import './firebase-config.js';
-import { onAuthChange, getCurrentUser, ensureUserRecord } from './auth.js';
-import { renderHeader } from './components.js';
-import { renderHome } from './home.js';
-import { renderWatch } from './watch.js';
-import { renderChannel } from './channel.js';
-import { renderUpload } from './upload.js';
+// FakeTube App - Dynamic imports to handle Firebase CDN failures gracefully
 
 const header = document.getElementById('header');
 const mainContent = document.getElementById('main-content');
 
+// --- Route Parser (no imports needed) ---
 function parseRoute() {
   const hash = window.location.hash || '#/';
   if (hash === '#/' || hash === '#' || hash === '') return { page: 'home' };
@@ -28,48 +23,7 @@ function parseRoute() {
   return { page: 'home' };
 }
 
-async function navigate() {
-  const route = parseRoute();
-  mainContent.scrollTop = 0;
-  window.scrollTo(0, 0);
-
-  try {
-    switch (route.page) {
-      case 'home':
-        await renderHome(mainContent);
-        break;
-      case 'watch':
-        await renderWatch(mainContent, route.id);
-        break;
-      case 'channel':
-        await renderChannel(mainContent, route.id);
-        break;
-      case 'upload':
-        renderUpload(mainContent);
-        break;
-      case 'search':
-        await renderHome(mainContent, route.term);
-        break;
-      case 'tutorial':
-        renderTutorial(mainContent);
-        break;
-      default:
-        await renderHome(mainContent);
-    }
-  } catch (err) {
-    console.error('Navigation error:', err);
-    mainContent.innerHTML = `
-      <div class="empty-state">
-        <h3>Something went wrong</h3>
-        <p style="max-width:500px;margin:0 auto 16px;">${err.message || 'An unexpected error occurred.'}</p>
-        <a href="#/" class="btn btn-primary">Try again</a>
-        <br><br>
-        <a href="#/how-to-upload" style="color:var(--accent-blue);">How to upload videos</a>
-      </div>
-    `;
-  }
-}
-
+// --- Tutorial Page (no Firebase needed) ---
 function renderTutorial(container) {
   container.innerHTML = `
     <div style="max-width:720px;margin:0 auto;">
@@ -139,7 +93,7 @@ function renderTutorial(container) {
           Alternative: GitHub Releases (permanent links)
         </h2>
         <p style="color:#aaa;line-height:1.7;">
-          Upload your MP4 to any GitHub repo's Releases. The download URL works as a direct video link and <strong style="color:#f1f1f1;">never expires</strong>. Go to your repo > Releases > New release > attach .mp4 > publish > right-click asset > copy link.
+          Upload your MP4 to any GitHub repo's Releases. The download URL works as a direct video link and <strong style="color:#f1f1f1;">never expires</strong>. Go to your repo &gt; Releases &gt; New release &gt; attach .mp4 &gt; publish &gt; right-click asset &gt; copy link.
         </p>
       </div>
 
@@ -150,16 +104,98 @@ function renderTutorial(container) {
   `;
 }
 
-// --- Bootstrap ---
-console.log('FakeTube: modules loaded, initializing...');
+// --- Error Page ---
+function showError(container, title, message) {
+  container.innerHTML = `
+    <div class="empty-state">
+      <h3>${title}</h3>
+      <p style="max-width:500px;margin:0 auto 16px;">${message}</p>
+      <p style="max-width:500px;margin:0 auto 16px;color:var(--text-dimmed);">Open browser console (F12) for details.</p>
+      <a href="javascript:location.reload()" class="btn btn-primary">Reload</a>
+      <br><br>
+      <a href="#/how-to-upload" style="color:var(--accent-blue);">How to upload videos</a>
+    </div>
+  `;
+}
 
-// Clear initial loading state
-const initialLoading = document.getElementById('initial-loading');
-if (initialLoading) initialLoading.style.display = 'none';
-const initialError = document.getElementById('initial-error');
-if (initialError) initialError.style.display = 'none';
+// --- Bootstrap with dynamic imports ---
+async function bootstrap() {
+  console.log('FakeTube: loading modules...');
 
-try {
+  // Clear initial loading state
+  const initialLoading = document.getElementById('initial-loading');
+  if (initialLoading) initialLoading.style.display = 'none';
+  const initialError = document.getElementById('initial-error');
+  if (initialError) initialError.style.display = 'none';
+
+  // If navigating to tutorial, render it immediately (no Firebase needed)
+  const route = parseRoute();
+  if (route.page === 'tutorial') {
+    renderTutorial(mainContent);
+    // Still try to load Firebase in background for header auth state
+    loadFirebaseModules().catch(e => console.warn('Firebase unavailable, tutorial still works:', e.message));
+    return;
+  }
+
+  // Load all Firebase-dependent modules dynamically
+  let modules;
+  try {
+    modules = await loadFirebaseModules();
+  } catch (err) {
+    console.error('FakeTube: failed to load modules:', err);
+    showError(mainContent,
+      'FakeTube failed to load',
+      `The Firebase SDK could not be loaded. This usually means <b>gstatic.com</b> is blocked by an extension or network. Try disabling ad blockers, or open in an incognito window.<br><br>If you just set up the project, you may also need to <a href="https://console.firebase.google.com/" target="_blank" style="color:var(--accent-blue)">create the Firestore database</a> first.<br><br><span style="color:var(--text-dimmed)">Error: ${err.message || 'Unknown'}</span>`
+    );
+    return;
+  }
+
+  const { onAuthChange, ensureUserRecord } = modules.auth;
+  const { renderHeader } = modules.components;
+  const { renderHome } = modules.home;
+  const { renderWatch } = modules.watch;
+  const { renderChannel } = modules.channel;
+  const { renderUpload } = modules.upload;
+
+  // Navigation
+  async function navigate() {
+    const r = parseRoute();
+    mainContent.scrollTop = 0;
+    window.scrollTo(0, 0);
+
+    try {
+      switch (r.page) {
+        case 'home':
+          await renderHome(mainContent);
+          break;
+        case 'watch':
+          await renderWatch(mainContent, r.id);
+          break;
+        case 'channel':
+          await renderChannel(mainContent, r.id);
+          break;
+        case 'upload':
+          renderUpload(mainContent);
+          break;
+        case 'search':
+          await renderHome(mainContent, r.term);
+          break;
+        case 'tutorial':
+          renderTutorial(mainContent);
+          break;
+        default:
+          await renderHome(mainContent);
+      }
+    } catch (err) {
+      console.error('Navigation error:', err);
+      showError(mainContent,
+        'Something went wrong',
+        `${err.message || 'An unexpected error occurred.'}<br><br><a href="#/how-to-upload" style="color:var(--accent-blue);">How to upload videos</a>`
+      );
+    }
+  }
+
+  // Auth listener
   onAuthChange(async (user) => {
     renderHeader();
     if (user) {
@@ -172,14 +208,29 @@ try {
   navigate();
 
   console.log('FakeTube: initialized successfully');
-} catch (err) {
-  console.error('App init error:', err);
-  mainContent.innerHTML = `
-    <div class="empty-state">
-      <h3>Failed to load FakeTube</h3>
-      <p style="max-width:500px;margin:0 auto 16px;">Error: ${err.message}</p>
-      <p style="max-width:500px;margin:0 auto 16px;color:var(--text-dimmed);">Open browser console (F12) for details.</p>
-      <a href="#/" class="btn btn-primary" onclick="location.reload()">Reload</a>
-    </div>
-  `;
 }
+
+// Dynamic import loader - loads all Firebase-dependent modules
+async function loadFirebaseModules() {
+  const [auth, components, home, watch, channel, upload] = await Promise.all([
+    import('./firebase-config.js'),
+    import('./auth.js'),
+    import('./components.js'),
+    import('./home.js'),
+    import('./watch.js'),
+    import('./channel.js'),
+    import('./upload.js'),
+  ]);
+  return { auth, components, home, watch, channel, upload };
+}
+
+// Start the app
+bootstrap().catch(err => {
+  console.error('FakeTube: bootstrap failed:', err);
+  const el = document.getElementById('main-content');
+  if (el) {
+    el.innerHTML = '<div class="empty-state"><h3>Failed to start FakeTube</h3>' +
+      '<p style="max-width:500px;margin:0 auto 16px;">' + (err.message || 'Unknown error') + '</p>' +
+      '<a href="javascript:location.reload()" class="btn btn-primary">Reload</a></div>';
+  }
+});
