@@ -1,7 +1,7 @@
 import { getPost, togglePostStar, isPostStarred, addPostComment, onPostCommentsChange } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { openAuthModal, STAR_SVG, STAR_OUTLINE_SVG, COMMENT_SVG, CLOSE_SVG } from './components.js';
-import { timeAgo, escapeHtml, getInitials, showToast, rateLimit } from './utils.js';
+import { timeAgo, escapeHtml, getInitials, showToast } from './utils.js';
 
 let unsubscribeComments = null;
 
@@ -58,11 +58,11 @@ export function setupPostCardActions(container) {
       e.stopPropagation();
       const user = getCurrentUser();
       if (!user) { openAuthModal('login'); return; }
-      // Client-side rate limit for starring: 30 per minute
-      if (!rateLimit('toggle_star', 30, 60000)) {
-        showToast('Slow down with the starring!');
-        return;
-      }
+      // Debounce: ignore rapid re-clicks within 1 second
+      if (starBtn.disabled) return;
+      starBtn.disabled = true;
+      setTimeout(() => { starBtn.disabled = false; }, 1000);
+
       const postId = starBtn.dataset.postId;
       const icon = starBtn.querySelector('.post-star-icon');
       const count = starBtn.querySelector('.post-star-count');
@@ -84,7 +84,7 @@ export function setupPostCardActions(container) {
         }
       } catch (err) {
         console.error('Star toggle error:', err);
-        showToast('Could not toggle star. Check Firestore rules.');
+        showToast('Could not toggle star.');
       }
     }
   });
@@ -153,11 +153,11 @@ export async function renderPost(container, postId) {
   if (starBtn) {
     starBtn.addEventListener('click', async () => {
       if (!user) { openAuthModal('login'); return; }
-      // Client-side rate limit for starring: 30 per minute
-      if (!rateLimit('toggle_star', 30, 60000)) {
-        showToast('Slow down with the starring!');
-        return;
-      }
+      // Debounce: ignore rapid re-clicks within 1 second
+      if (starBtn.disabled) return;
+      starBtn.disabled = true;
+      setTimeout(() => { starBtn.disabled = false; }, 1000);
+
       const icon = starBtn.querySelector('.post-star-icon');
       const count = starBtn.querySelector('.post-star-count');
       const label = starBtn.querySelector('.post-star-label');
@@ -179,6 +179,7 @@ export async function renderPost(container, postId) {
         }
       } catch (err) {
         console.error('Star toggle error:', err);
+        showToast('Could not toggle star.');
       }
     });
   }

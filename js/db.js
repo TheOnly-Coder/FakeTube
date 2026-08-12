@@ -279,11 +279,21 @@ export async function togglePostStar(postId) {
 
   if (snap.exists()) {
     await deleteDoc(starRef);
-    await updateDoc(doc(db, 'posts', postId), { stars: increment(-1) });
+    // Best-effort: don't fail the whole toggle if the count update errors
+    try {
+      await updateDoc(doc(db, 'posts', postId), { stars: increment(-1) });
+    } catch (e) {
+      console.warn('Star count decrement failed:', e);
+    }
     return false;
   } else {
     await setDoc(starRef, { postId, userId: user.uid, createdAt: Date.now() });
-    await updateDoc(doc(db, 'posts', postId), { stars: increment(1) });
+    // Best-effort: don't fail the whole toggle if the count update errors
+    try {
+      await updateDoc(doc(db, 'posts', postId), { stars: increment(1) });
+    } catch (e) {
+      console.warn('Star count increment failed:', e);
+    }
     return true;
   }
 }
