@@ -214,7 +214,7 @@ async function bootstrap() {
 // ?v=4 cache-bust to prevent serving stale cached modules
 const V = '?v=4';
 async function loadFirebaseModules() {
-  const [auth, components, home, watch, channel, upload] = await Promise.all([
+  const [, auth, components, home, watch, channel, upload] = await Promise.all([
     import('./firebase-config.js' + V),
     import('./auth.js' + V),
     import('./components.js' + V),
