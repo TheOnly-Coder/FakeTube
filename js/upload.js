@@ -1,4 +1,5 @@
-import { getCurrentUser, openAuthModal, ensureUserRecord } from './auth.js';
+import { getCurrentUser, ensureUserRecord } from './auth.js';
+import { openAuthModal } from './components.js';
 import { createVideo } from './db.js';
 import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast } from './utils.js';
 
