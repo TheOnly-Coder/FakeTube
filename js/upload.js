@@ -1,7 +1,6 @@
 import { getCurrentUser, openAuthModal, ensureUserRecord } from './auth.js';
 import { createVideo } from './db.js';
-import { uploadVideo, uploadThumbnail } from './storage.js';
-import { generateThumbnail, getVideoDuration, showToast, generateId } from './utils.js';
+import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast } from './utils.js';
 
 export function renderUpload(container) {
   const user = getCurrentUser();
@@ -9,7 +8,7 @@ export function renderUpload(container) {
     container.innerHTML = `
       <div class="empty-state">
         <h3>Sign in to upload</h3>
-        <p>You need an account to upload videos.</p>
+        <p>You need an account to share videos.</p>
         <button class="btn btn-primary" id="upload-signin-btn">Sign in</button>
       </div>
     `;
@@ -19,156 +18,176 @@ export function renderUpload(container) {
 
   container.innerHTML = `
     <div class="upload-page">
-      <h1>Upload Video</h1>
-      <div class="upload-dropzone" id="upload-dropzone">
-        <svg viewBox="0 0 24 24"><path d="M9,16h6v-6h4l-7-7l-7,7h4V16z M5,18h14v2H5V18z"/></svg>
-        <p>Drag and drop video files to upload</p>
-        <span>Your videos will be private until you publish them.</span>
-      </div>
-      <input type="file" id="file-input" accept="video/*" class="hidden">
-      <div class="upload-form hidden" id="upload-form">
-        <div class="upload-preview">
-          <div class="upload-thumbnail-preview" id="thumb-preview"></div>
-          <div class="upload-fields">
-            <input type="text" id="video-title" placeholder="Title (required)" maxlength="100">
-            <textarea id="video-desc" placeholder="Tell viewers about your video (optional)" maxlength="5000" rows="4"></textarea>
-            <div class="upload-progress-container hidden" id="progress-container">
-              <div class="upload-progress-bar"><div class="upload-progress-fill" id="progress-fill"></div></div>
-              <div class="upload-progress-text" id="progress-text">Uploading... 0%</div>
+      <h1>Share a Video</h1>
+      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">
+        Paste a direct link to a video file (MP4, WebM, OGG). You can host videos on
+        <a href="https://github.com" target="_blank" style="color:var(--accent-blue)">GitHub Releases</a>,
+        <a href="https://drive.google.com" target="_blank" style="color:var(--accent-blue)">Google Drive</a>,
+        or any direct link.
+      </p>
+      <div class="upload-form" id="upload-form">
+        <div class="upload-url-section">
+          <label style="font-size:14px;font-weight:500;margin-bottom:6px;display:block;">Video URL <span style="color:var(--accent-red)">*</span></label>
+          <input type="url" id="video-url" placeholder="https://example.com/my-video.mp4" style="width:100%;font-size:14px;">
+          <button class="btn btn-outline" id="preview-btn" style="margin-top:8px;">Preview & Generate Thumbnail</button>
+          <p id="url-error" style="color:var(--accent-red);font-size:13px;margin-top:4px;display:none;"></p>
+        </div>
+        <div id="preview-area" class="hidden">
+          <div class="upload-preview">
+            <div class="upload-thumbnail-preview" id="thumb-preview">
+              <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dimmed);font-size:13px;">No thumbnail</div>
+            </div>
+            <div class="upload-fields">
+              <input type="text" id="video-title" placeholder="Title (required)" maxlength="100">
+              <textarea id="video-desc" placeholder="Tell viewers about your video (optional)" maxlength="5000" rows="4"></textarea>
             </div>
           </div>
-        </div>
-        <div class="upload-actions">
-          <button class="btn" id="upload-cancel-btn">Cancel</button>
-          <button class="btn btn-primary" id="upload-submit-btn" disabled>Upload</button>
+          <div class="upload-actions">
+            <button class="btn" id="upload-cancel-btn">Cancel</button>
+            <button class="btn btn-primary" id="upload-submit-btn" disabled>Publish</button>
+          </div>
         </div>
       </div>
     </div>
   `;
 
-  let selectedFile = null;
-  let thumbnailBlob = null;
+  let thumbnailDataUrl = '';
+  let videoDuration = '';
 
-  const dropzone = document.getElementById('upload-dropzone');
-  const fileInput = document.getElementById('file-input');
-  const uploadForm = document.getElementById('upload-form');
-  const thumbPreview = document.getElementById('thumb-preview');
+  const urlInput = document.getElementById('video-url');
+  const previewBtn = document.getElementById('preview-btn');
+  const previewArea = document.getElementById('preview-area');
   const titleInput = document.getElementById('video-title');
   const submitBtn = document.getElementById('upload-submit-btn');
-  const progressContainer = document.getElementById('progress-container');
-  const progressFill = document.getElementById('progress-fill');
-  const progressText = document.getElementById('progress-text');
+  const thumbPreview = document.getElementById('thumb-preview');
+  const urlError = document.getElementById('url-error');
 
-  dropzone.addEventListener('click', () => fileInput.click());
-
-  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-  dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) handleFile(file);
-    else showToast('Please select a video file.');
-  });
-
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) handleFile(file);
-  });
-
-  async function handleFile(file) {
-    selectedFile = file;
-    // Show preview
-    const url = URL.createObjectURL(file);
-    thumbPreview.innerHTML = `<video src="${url}" muted playsinline></video>`;
-    
-    // Generate thumbnail
-    thumbnailBlob = await generateThumbnail(file);
-    if (thumbnailBlob) {
-      const thumbUrl = URL.createObjectURL(thumbnailBlob);
-      thumbPreview.innerHTML = `<img src="${thumbUrl}" alt="Preview">`;
+  previewBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+      showUrlError('Please enter a video URL.');
+      return;
     }
 
-    // Get duration
-    const duration = await getVideoDuration(file);
-    if (!titleInput.value) {
-      const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-      titleInput.value = name;
-    }
-    submitBtn.disabled = false;
-    uploadForm.classList.remove('hidden');
-    dropzone.classList.add('hidden');
-  }
-
-  titleInput.addEventListener('input', () => {
-    submitBtn.disabled = !titleInput.value.trim();
-  });
-
-  document.getElementById('upload-cancel-btn').addEventListener('click', () => {
-    resetForm();
-  });
-
-  function resetForm() {
-    selectedFile = null;
-    thumbnailBlob = null;
-    titleInput.value = '';
-    document.getElementById('video-desc').value = '';
-    uploadForm.classList.add('hidden');
-    dropzone.classList.remove('hidden');
-    progressContainer.classList.add('hidden');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Upload';
-    fileInput.value = '';
-  }
-
-  submitBtn.addEventListener('click', async () => {
-    if (!selectedFile || !titleInput.value.trim()) return;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Uploading...';
-    progressContainer.classList.remove('hidden');
+    previewBtn.disabled = true;
+    previewBtn.textContent = 'Loading...';
+    urlError.style.display = 'none';
 
     try {
-      // Ensure user record exists
-      await ensureUserRecord(user.uid);
-
-      // Upload video file
-      const videoUrl = await uploadVideo(selectedFile, (pct) => {
-        progressFill.style.width = `${pct * 0.7}%`;
-        progressText.textContent = `Uploading video... ${pct}%`;
-      });
-
-      // Upload thumbnail
-      let thumbnailUrl = '';
-      if (thumbnailBlob) {
-        thumbnailUrl = await uploadThumbnail(thumbnailBlob, (pct) => {
-          progressFill.style.width = `${70 + pct * 0.3}%`;
-          progressText.textContent = `Uploading thumbnail... ${pct}%`;
-        });
+      // Test if the URL works as a video
+      const canPlay = await testVideoUrl(url);
+      if (!canPlay) {
+        showUrlError('Could not load video. Make sure it\'s a direct link to an MP4, WebM, or OGG file. For Google Drive, use the direct download link.');
+        previewBtn.disabled = false;
+        previewBtn.textContent = 'Preview & Generate Thumbnail';
+        return;
       }
 
-      progressFill.style.width = '100%';
-      progressText.textContent = 'Saving...';
+      // Try generating thumbnail
+      const thumb = await generateThumbnailFromUrl(url);
+      if (thumb) {
+        thumbnailDataUrl = thumb;
+        thumbPreview.innerHTML = `<img src="${thumb}" alt="Thumbnail">`;
+      } else {
+        thumbnailDataUrl = '';
+        thumbPreview.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dimmed);font-size:13px;">Could not generate thumbnail (CORS). Video will still work.</div>';
+      }
 
-      // Save video metadata
+      // Get duration
+      videoDuration = await getVideoDurationFromUrl(url);
+
+      // Auto-fill title from URL filename
+      if (!titleInput.value.trim()) {
+        try {
+          const urlObj = new URL(url);
+          const filename = decodeURIComponent(urlObj.pathname.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '));
+          if (filename && filename.length > 2) titleInput.value = filename;
+        } catch {}
+      }
+
+      previewArea.classList.remove('hidden');
+      checkSubmit();
+    } catch (err) {
+      showUrlError('Error loading video: ' + (err.message || 'Unknown error'));
+    }
+
+    previewBtn.disabled = false;
+    previewBtn.textContent = 'Preview & Generate Thumbnail';
+  });
+
+  function showUrlError(msg) {
+    urlError.textContent = msg;
+    urlError.style.display = 'block';
+  }
+
+  titleInput.addEventListener('input', checkSubmit);
+
+  function checkSubmit() {
+    submitBtn.disabled = !titleInput.value.trim();
+  }
+
+  document.getElementById('upload-cancel-btn').addEventListener('click', () => {
+    previewArea.classList.add('hidden');
+    urlInput.value = '';
+    titleInput.value = '';
+    document.getElementById('video-desc').value = '';
+    thumbnailDataUrl = '';
+    videoDuration = '';
+    submitBtn.disabled = true;
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    const title = titleInput.value.trim();
+    if (!url || !title) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Publishing...';
+
+    try {
+      await ensureUserRecord(user.uid);
+
       const videoId = await createVideo({
-        title: titleInput.value.trim(),
+        title,
         description: document.getElementById('video-desc').value.trim(),
         uploaderId: user.uid,
         uploaderName: user.displayName,
         uploaderPhoto: user.photoURL || '',
-        videoUrl,
-        thumbnailUrl,
-        duration: await getVideoDuration(selectedFile)
+        videoUrl: url,
+        thumbnailUrl: thumbnailDataUrl,
+        duration: videoDuration
       });
 
-      showToast('Video uploaded successfully!');
+      showToast('Video published!');
       window.location.hash = `#/watch/${videoId}`;
     } catch (err) {
-      console.error('Upload error:', err);
-      showToast('Upload failed. Please try again.');
+      console.error('Publish error:', err);
+      showToast('Failed to publish. Check Firestore rules.');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Upload';
-      progressContainer.classList.add('hidden');
+      submitBtn.textContent = 'Publish';
     }
+  });
+}
+
+function testVideoUrl(url) {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.preload = 'metadata';
+    const timer = setTimeout(() => {
+      video.src = '';
+      // Even if metadata doesn't load due to CORS, the video might still play
+      resolve(true);
+    }, 8000);
+    video.onloadedmetadata = () => {
+      clearTimeout(timer);
+      URL.revokeObjectURL(video.src);
+      resolve(true);
+    };
+    video.onerror = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    video.src = url;
   });
 }

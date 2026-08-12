@@ -1,56 +1,60 @@
 import { db } from './firebase-config.js';
-import { 
-  ref, set, get, push, update, remove, 
-  onValue, off, query, orderByChild, limitToLast, limitToFirst 
-} from 'firebase/database';
+import {
+  doc, setDoc, getDoc, addDoc, updateDoc, deleteDoc,
+  collection, getDocs, query, where, orderBy, limit,
+  onSnapshot, increment, runTransaction
+} from 'firebase/firestore';
 import { getCurrentUser } from './auth.js';
 
 // ---- Users ----
 export async function getUser(uid) {
-  const snap = await get(ref(db, `users/${uid}`));
-  return snap.exists() ? snap.val() : null;
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return { id: uid, ...data };
 }
 
 export async function updateUser(uid, data) {
-  const updates = {};
-  for (const [k, v] of Object.entries(data)) updates[`users/${uid}/${k}`] = v;
-  await update(ref(db), updates);
+  await updateDoc(doc(db, 'users', uid), data);
 }
 
 // ---- Videos ----
 export async function createVideo(videoData) {
-  const id = push(ref(db, 'videos')).key;
-  await set(ref(db, `videos/${id}`), { ...videoData, id, views: 0, createdAt: Date.now() });
-  return id;
+  const ref = await addDoc(collection(db, 'videos'), {
+    ...videoData,
+    views: 0,
+    createdAt: Date.now()
+  });
+  return ref.id;
 }
 
 export async function getVideo(videoId) {
-  const snap = await get(ref(db, `videos/${videoId}`));
-  return snap.exists() ? { id: videoId, ...snap.val() } : null;
+  const snap = await getDoc(doc(db, 'videos', videoId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() };
 }
 
 export async function getVideos(count = 50) {
-  const snap = await get(query(ref(db, 'videos'), orderByChild('createdAt'), limitToLast(count)));
-  if (!snap.exists()) return [];
-  const videos = [];
-  snap.forEach(child => videos.push({ id: child.key, ...child.val() }));
-  return videos.reverse();
+  const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc'), limit(count));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function getVideosByUser(uid, count = 50) {
-  const snap = await get(query(ref(db, 'videos'), orderByChild('uploaderId'), limitToLast(count)));
-  if (!snap.exists()) return [];
-  const videos = [];
-  snap.forEach(child => {
-    if (child.val().uploaderId === uid) videos.push({ id: child.key, ...child.val() });
-  });
-  return videos.reverse();
+  const q = query(
+    collection(db, 'videos'),
+    where('uploaderId', '==', uid),
+    orderBy('createdAt', 'desc'),
+    limit(count)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function incrementViews(videoId) {
-  const snap = await get(ref(db, `videos/${videoId}/views`));
-  const current = snap.val() || 0;
-  await update(ref(db, `videos/${videoId}`), { views: current + 1 });
+  await updateDoc(doc(db, 'videos', videoId), {
+    views: increment(1)
+  });
 }
 
 export async function deleteVideo(videoId) {
@@ -58,48 +62,72 @@ export async function deleteVideo(videoId) {
   if (!video) return;
   const user = getCurrentUser();
   if (video.uploaderId !== user?.uid) return;
-  await remove(ref(db, `videos/${videoId}`));
-  await remove(ref(db, `comments/${videoId}`));
+  await deleteDoc(doc(db, 'videos', videoId));
+  // Delete associated comments
+  const snap = await getDocs(query(collection(db, 'comments'), where('videoId', '==', videoId)));
+  for (const d of snap.docs) await deleteDoc(doc(db, 'comments', d.id));
 }
 
 // ---- Comments ----
 export async function addComment(videoId, text, user) {
-  const id = push(ref(db, `comments/${videoId}`)).key;
-  await set(ref(db, `comments/${videoId}/${id}`), {
-    id, text, userId: user.uid, userName: user.displayName, userPhoto: user.photoURL || '', createdAt: Date.now()
+  const ref = await addDoc(collection(db, 'comments'), {
+    videoId,
+    text,
+    userId: user.uid,
+    userName: user.displayName,
+    userPhoto: user.photoURL || '',
+    createdAt: Date.now()
   });
-  return id;
+  return ref.id;
 }
 
 export async function getComments(videoId) {
-  const snap = await get(ref(db, `comments/${videoId}`));
-  if (!snap.exists()) return [];
-  const comments = [];
-  snap.forEach(child => comments.push({ id: child.key, ...child.val() }));
-  return comments.sort((a, b) => a.createdAt - b.createdAt);
+  const q = query(
+    collection(db, 'comments'),
+    where('videoId', '==', videoId),
+    orderBy('createdAt', 'asc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// ---- Subscriptions (Notify) ----
+export function onCommentsChange(videoId, callback) {
+  const q = query(
+    collection(db, 'comments'),
+    where('videoId', '==', videoId),
+    orderBy('createdAt', 'asc')
+  );
+  const unsubscribe = onSnapshot(q, (snap) => {
+    const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(comments);
+  });
+  return unsubscribe;
+}
+
+// ---- Notify (Subscriptions) ----
 export async function toggleNotify(channelId) {
   const user = getCurrentUser();
   if (!user || channelId === user.uid) return false;
-  const subRef = ref(db, `subscribers/${channelId}/${user.uid}`);
-  const snap = await get(subRef);
+  const subDocId = `${channelId}_${user.uid}`;
+  const subRef = doc(db, 'subscribers', subDocId);
+  const snap = await getDoc(subRef);
+
   if (snap.exists()) {
-    await remove(subRef);
-    const countSnap = await get(ref(db, `users/${channelId}/subscriberCount`));
-    const count = (countSnap.val() || 1) - 1;
-    await update(ref(db, `users/${channelId}`), { subscriberCount: Math.max(0, count) });
+    // Unsubscribe
+    await deleteDoc(subRef);
+    await updateDoc(doc(db, 'users', channelId), {
+      subscriberCount: increment(-1)
+    });
     return false;
   } else {
-    await set(subRef, true);
-    const countSnap = await get(ref(db, `users/${channelId}/subscriberCount`));
-    const count = (countSnap.val() || 0) + 1;
-    await update(ref(db, `users/${channelId}`), { subscriberCount: count });
-    // Create notification
-    const notifId = push(ref(db, `notifications/${channelId}`)).key;
-    await set(ref(db, `notifications/${channelId}/${notifId}`), {
-      id: notifId, type: 'new_subscriber', fromUserId: user.uid, fromUserName: user.displayName, createdAt: Date.now(), read: false
+    // Subscribe
+    await setDoc(subRef, {
+      channelId,
+      subscriberId: user.uid,
+      createdAt: Date.now()
+    });
+    await updateDoc(doc(db, 'users', channelId), {
+      subscriberCount: increment(1)
     });
     return true;
   }
@@ -108,32 +136,22 @@ export async function toggleNotify(channelId) {
 export async function isNotifying(channelId) {
   const user = getCurrentUser();
   if (!user) return false;
-  const snap = await get(ref(db, `subscribers/${channelId}/${user.uid}`));
+  const snap = await getDoc(doc(db, 'subscribers', `${channelId}_${user.uid}`));
   return snap.exists();
 }
 
 export async function getSubscriberCount(channelId) {
-  const snap = await get(ref(db, `users/${channelId}/subscriberCount`));
-  return snap.val() || 0;
-}
-
-export function onCommentsChange(videoId, callback) {
-  const commentsRef = query(ref(db, `comments/${videoId}`), orderByChild('createdAt', limitToLast(100)));
-  onValue(commentsRef, (snap) => {
-    if (!snap.exists()) { callback([]); return; }
-    const comments = [];
-    snap.forEach(child => comments.push({ id: child.key, ...child.val() }));
-    callback(comments.sort((a, b) => a.createdAt - b.createdAt));
-  });
-  return () => off(commentsRef);
+  const snap = await getDoc(doc(db, 'users', channelId));
+  if (!snap.exists()) return 0;
+  return snap.data().subscriberCount || 0;
 }
 
 // ---- Search ----
 export async function searchVideos(searchTerm) {
   const allVideos = await getVideos(200);
   const term = searchTerm.toLowerCase();
-  return allVideos.filter(v => 
-    (v.title && v.title.toLowerCase().includes(term)) || 
+  return allVideos.filter(v =>
+    (v.title && v.title.toLowerCase().includes(term)) ||
     (v.description && v.description.toLowerCase().includes(term)) ||
     (v.uploaderName && v.uploaderName.toLowerCase().includes(term))
   );

@@ -1,5 +1,8 @@
 export function timeAgo(timestamp) {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (!timestamp) return '';
+  const ts = timestamp?.toMillis ? timestamp.toMillis() : timestamp;
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 0 || isNaN(seconds)) return 'just now';
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -33,6 +36,7 @@ export function truncate(str, maxLen = 100) {
 }
 
 export function escapeHtml(str) {
+  if (!str) return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
@@ -56,12 +60,14 @@ export function showToast(message) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-export function getVideoDuration(file) {
+export function getVideoDurationFromUrl(url) {
   return new Promise((resolve) => {
     const video = document.createElement('video');
     video.preload = 'metadata';
+    video.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => { video.src = ''; resolve('0:00'); }, 6000);
     video.onloadedmetadata = () => {
-      URL.revokeObjectURL(video.src);
+      clearTimeout(timer);
       const s = Math.floor(video.duration);
       const m = Math.floor(s / 60);
       const h = Math.floor(m / 60);
@@ -70,14 +76,15 @@ export function getVideoDuration(file) {
       if (h > 0) resolve(`${h}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`);
       else resolve(`${mm}:${String(ss).padStart(2,'0')}`);
     };
-    video.onerror = () => resolve('0:00');
-    video.src = URL.createObjectURL(file);
+    video.onerror = () => { clearTimeout(timer); resolve('0:00'); };
+    video.src = url;
   });
 }
 
-export function generateThumbnail(file) {
+export function generateThumbnailFromUrl(url) {
   return new Promise((resolve) => {
     const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
     video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
@@ -86,20 +93,30 @@ export function generateThumbnail(file) {
     canvas.height = 360;
     const ctx = canvas.getContext('2d');
 
+    const timer = setTimeout(() => {
+      video.src = '';
+      resolve(null);
+    }, 10000);
+
     video.onloadeddata = () => {
       video.currentTime = Math.min(1, video.duration * 0.1);
     };
     video.onseeked = () => {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        URL.revokeObjectURL(video.src);
-        resolve(blob);
-      }, 'image/jpeg', 0.85);
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        clearTimeout(timer);
+        resolve(dataUrl.length > 100 ? dataUrl : null);
+      } catch (e) {
+        // CORS error - can't extract frame
+        clearTimeout(timer);
+        resolve(null);
+      }
     };
     video.onerror = () => {
-      URL.revokeObjectURL(video.src);
+      clearTimeout(timer);
       resolve(null);
     };
-    video.src = URL.createObjectURL(file);
+    video.src = url;
   });
 }

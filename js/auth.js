@@ -1,4 +1,4 @@
-import { auth } from './firebase-config.js';
+import { auth, db } from './firebase-config.js';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -6,8 +6,7 @@ import {
   updateProfile, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { ref, set, get } from 'firebase/database';
-import { db } from './firebase-config.js';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { showToast } from './utils.js';
 
 let currentUser = null;
@@ -26,13 +25,13 @@ export async function signup(email, password, displayName) {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName });
-    await set(ref(db, `users/${cred.user.uid}`), {
+    await setDoc(doc(db, 'users', cred.user.uid), {
       displayName,
       email,
       photoURL: '',
       bio: '',
       subscriberCount: 0,
-      createdAt: Date.now()
+      createdAt: serverTimestamp()
     });
     showToast('Account created!');
     return { success: true };
@@ -64,16 +63,16 @@ export async function logout() {
 }
 
 export async function ensureUserRecord(uid) {
-  const snap = await get(ref(db, `users/${uid}`));
+  const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) {
     const user = auth.currentUser;
-    await set(ref(db, `users/${uid}`), {
+    await setDoc(doc(db, 'users', uid), {
       displayName: user?.displayName || 'Anonymous',
       email: user?.email || '',
       photoURL: user?.photoURL || '',
       bio: '',
       subscriberCount: 0,
-      createdAt: Date.now()
+      createdAt: serverTimestamp()
     });
   }
 }
