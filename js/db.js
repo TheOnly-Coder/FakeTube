@@ -5,6 +5,7 @@ import {
   onSnapshot, increment, runTransaction
 } from 'firebase/firestore';
 import { getCurrentUser } from './auth.js';
+import { escapeHtml } from './utils.js';
 
 // ---- Users ----
 export async function getUser(uid) {
@@ -15,13 +16,31 @@ export async function getUser(uid) {
 }
 
 export async function updateUser(uid, data) {
-  await updateDoc(doc(db, 'users', uid), data);
+  // Sanitize user profile fields before writing
+  const sanitized = {};
+  if (data.displayName !== undefined) sanitized.displayName = String(data.displayName).substring(0, 50);
+  if (data.bio !== undefined) sanitized.bio = String(data.bio).substring(0, 300);
+  if (data.photoURL !== undefined) sanitized.photoURL = String(data.photoURL).substring(0, 500);
+  if (data.banner !== undefined) sanitized.banner = String(data.banner).substring(0, 500);
+  await updateDoc(doc(db, 'users', uid), sanitized);
 }
 
 // ---- Videos ----
 export async function createVideo(videoData) {
+  // Sanitize and validate video data before writing to Firestore
+  const sanitizedData = {
+    title: String(videoData.title || '').substring(0, 100),
+    description: String(videoData.description || '').substring(0, 5000),
+    tags: Array.isArray(videoData.tags) ? videoData.tags.map(t => String(t || '').trim().substring(0, 50)).filter(Boolean).slice(0, 20) : [],
+    uploaderId: String(videoData.uploaderId || '').substring(0, 100),
+    uploaderName: String(videoData.uploaderName || '').substring(0, 50),
+    uploaderPhoto: String(videoData.uploaderPhoto || '').substring(0, 500),
+    videoUrl: String(videoData.videoUrl || '').substring(0, 2000),
+    thumbnailUrl: String(videoData.thumbnailUrl || '').substring(0, 200000),
+    duration: String(videoData.duration || '').substring(0, 20)
+  };
   const ref = await addDoc(collection(db, 'videos'), {
-    ...videoData,
+    ...sanitizedData,
     views: 0,
     createdAt: Date.now()
   });
@@ -70,12 +89,14 @@ export async function deleteVideo(videoId) {
 
 // ---- Comments ----
 export async function addComment(videoId, text, user) {
+  // Sanitize inputs before sending to Firestore
+  const sanitizedText = String(text).substring(0, 1000);
   const ref = await addDoc(collection(db, 'comments'), {
-    videoId,
-    text,
+    videoId: String(videoId).substring(0, 100),
+    text: sanitizedText,
     userId: user.uid,
-    userName: user.displayName,
-    userPhoto: user.photoURL || '',
+    userName: String(user.displayName || 'Anonymous').substring(0, 50),
+    userPhoto: String(user.photoURL || '').substring(0, 500),
     createdAt: Date.now()
   });
   return ref.id;
@@ -276,12 +297,14 @@ export async function isPostStarred(postId) {
 
 // ---- Post Comments ----
 export async function addPostComment(postId, text, user) {
+  // Sanitize inputs before sending to Firestore
+  const sanitizedText = String(text).substring(0, 1000);
   const ref = await addDoc(collection(db, 'postComments'), {
-    postId,
-    text,
+    postId: String(postId).substring(0, 100),
+    text: sanitizedText,
     userId: user.uid,
-    userName: user.displayName,
-    userPhoto: user.photoURL || '',
+    userName: String(user.displayName || 'Anonymous').substring(0, 50),
+    userPhoto: String(user.photoURL || '').substring(0, 500),
     createdAt: Date.now()
   });
   return ref.id;

@@ -7,7 +7,7 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { showToast } from './utils.js';
+import { showToast, rateLimit } from './utils.js';
 
 let currentUser = null;
 let authListeners = [];
@@ -22,6 +22,27 @@ export function getCurrentUser() {
 }
 
 export async function signup(email, password, displayName) {
+  // Client-side rate limit: 3 signups per 5 minutes
+  if (!rateLimit('signup', 3, 300000)) {
+    return { success: false, error: 'Too many signup attempts. Please wait a few minutes.' };
+  }
+  // Validate password strength beyond Firebase's 6-char minimum
+  if (password && !/[A-Z]/.test(password)) {
+    return { success: false, error: 'Password must contain at least one uppercase letter.' };
+  }
+  if (password && !/[a-z]/.test(password)) {
+    return { success: false, error: 'Password must contain at least one lowercase letter.' };
+  }
+  if (password && !/[0-9]/.test(password)) {
+    return { success: false, error: 'Password must contain at least one number.' };
+  }
+  // Validate display name
+  if (!displayName || displayName.trim().length < 2) {
+    return { success: false, error: 'Display name must be at least 2 characters.' };
+  }
+  if (displayName.length > 50) {
+    return { success: false, error: 'Display name is too long (max 50 characters).' };
+  }
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName });
@@ -42,6 +63,10 @@ export async function signup(email, password, displayName) {
 }
 
 export async function login(email, password) {
+  // Client-side rate limit: 10 login attempts per 5 minutes
+  if (!rateLimit('login', 10, 300000)) {
+    return { success: false, error: 'Too many login attempts. Please wait a few minutes.' };
+  }
   try {
     await signInWithEmailAndPassword(auth, email, password);
     showToast('Signed in!');

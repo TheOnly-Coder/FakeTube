@@ -42,7 +42,7 @@ function renderTutorial(container) {
           Upload your video to YouTube (Unlisted)
         </h2>
         <p style="color:#aaa;line-height:1.7;margin-bottom:12px;">
-          Go to <a href="https://www.youtube.com/upload" target="blank" style="color:#3ea6ff;">youtube.com/upload</a> and upload your video.
+          Go to <a href="https://www.youtube.com/upload" target="_blank" rel="noopener noreferrer" style="color:#3ea6ff;">youtube.com/upload</a> and upload your video.
           Set the visibility to <strong style="color:#f1f1f1;">Unlisted</strong> — only people with the link can see it.
         </p>
         <div style="background:#0f0f0f;border-radius:8px;padding:16px;border-left:3px solid #3ea6ff;">
@@ -58,7 +58,7 @@ function renderTutorial(container) {
           Get the direct MP4 link from TurboScribe
         </h2>
         <p style="color:#aaa;line-height:1.7;margin-bottom:12px;">
-          Go to <a href="https://turboscribe.ai/downloader/youtube/video/free" target="_blank" style="color:#3ea6ff;">turboscribe.ai/downloader/youtube/video/free</a> and paste your YouTube video link. Click <strong style="color:#f1f1f1;">Download MP4</strong>.
+          Go to <a href="https://turboscribe.ai/downloader/youtube/video/free" target="_blank" rel="noopener noreferrer" style="color:#3ea6ff;">turboscribe.ai/downloader/youtube/video/free</a> and paste your YouTube video link. Click <strong style="color:#f1f1f1;">Download MP4</strong>.
         </p>
         <p style="color:#aaa;line-height:1.7;margin-bottom:12px;">
           It will take you to a page showing the raw MP4 video. <strong style="color:#f1f1f1;">Copy that page's URL from the address bar</strong> — that's your direct video link. It looks like:
@@ -111,13 +111,20 @@ function renderTutorial(container) {
 }
 
 // --- Error Page ---
-function showError(container, title, message) {
+// Import escapeHtml lazily to avoid circular deps at module top-level
+async function getEscapeHtml() {
+  const mod = await import('./utils.js');
+  return mod.escapeHtml;
+}
+
+async function showError(container, title, message) {
+  const escapeHtml = await getEscapeHtml();
   container.innerHTML = `
     <div class="empty-state">
-      <h3>${title}</h3>
-      <p style="max-width:500px;margin:0 auto 16px;">${message}</p>
+      <h3>${escapeHtml(title)}</h3>
+      <p style="max-width:500px;margin:0 auto 16px;">${escapeHtml(message)}</p>
       <p style="max-width:500px;margin:0 auto 16px;color:var(--text-dimmed);">Open browser console (F12) for details.</p>
-      <a href="javascript:location.reload()" class="btn btn-primary">Reload</a>
+      <button onclick="location.reload()" class="btn btn-primary">Reload</button>
       <br><br>
       <a href="#/how-to-upload" style="color:var(--accent-blue);">How to upload videos</a>
     </div>
@@ -151,7 +158,7 @@ async function bootstrap() {
     console.error('FakeTube: failed to load modules:', err);
     showError(mainContent,
       'FakeTube failed to load',
-      `The Firebase SDK could not be loaded. This usually means <b>gstatic.com</b> is blocked by an extension or network. Try disabling ad blockers, or open in an incognito window.<br><br>If you just set up the project, you may also need to <a href="https://console.firebase.google.com/" target="_blank" style="color:var(--accent-blue)">create the Firestore database</a> first.<br><br><span style="color:var(--text-dimmed)">Error: ${err.message || 'Unknown'}</span>`
+      `The Firebase SDK could not be loaded. This usually means gstatic.com is blocked by an extension or network. Try disabling ad blockers, or open in an incognito window. If you just set up the project, you may also need to create the Firestore database first. Error: ${err.message || 'Unknown'}`
     );
     return;
   }
@@ -203,7 +210,7 @@ async function bootstrap() {
       console.error('Navigation error:', err);
       showError(mainContent,
         'Something went wrong',
-        `${err.message || 'An unexpected error occurred.'}<br><br><a href="#/how-to-upload" style="color:var(--accent-blue);">How to upload videos</a>`
+        `${err.message || 'An unexpected error occurred.'} See the tutorial page for upload instructions.`
       );
     }
   }
@@ -244,8 +251,9 @@ bootstrap().catch(err => {
   console.error('FakeTube: bootstrap failed:', err);
   const el = document.getElementById('main-content');
   if (el) {
+    const safeMsg = (err.message || 'Unknown error').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     el.innerHTML = '<div class="empty-state"><h3>Failed to start FakeTube</h3>' +
-      '<p style="max-width:500px;margin:0 auto 16px;">' + (err.message || 'Unknown error') + '</p>' +
-      '<a href="javascript:location.reload()" class="btn btn-primary">Reload</a></div>';
+      '<p style="max-width:500px;margin:0 auto 16px;">' + safeMsg + '</p>' +
+      '<button onclick="location.reload()" class="btn btn-primary">Reload</button></div>';
   }
 });

@@ -1,7 +1,7 @@
 import { getPost, togglePostStar, isPostStarred, addPostComment, onPostCommentsChange } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { openAuthModal, STAR_SVG, STAR_OUTLINE_SVG, COMMENT_SVG, CLOSE_SVG } from './components.js';
-import { timeAgo, escapeHtml, getInitials, showToast } from './utils.js';
+import { timeAgo, escapeHtml, getInitials, showToast, rateLimit } from './utils.js';
 
 let unsubscribeComments = null;
 
@@ -58,6 +58,11 @@ export function setupPostCardActions(container) {
       e.stopPropagation();
       const user = getCurrentUser();
       if (!user) { openAuthModal('login'); return; }
+      // Client-side rate limit for starring: 30 per minute
+      if (!rateLimit('toggle_star', 30, 60000)) {
+        showToast('Slow down with the starring!');
+        return;
+      }
       const postId = starBtn.dataset.postId;
       const icon = starBtn.querySelector('.post-star-icon');
       const count = starBtn.querySelector('.post-star-count');
@@ -148,6 +153,11 @@ export async function renderPost(container, postId) {
   if (starBtn) {
     starBtn.addEventListener('click', async () => {
       if (!user) { openAuthModal('login'); return; }
+      // Client-side rate limit for starring: 30 per minute
+      if (!rateLimit('toggle_star', 30, 60000)) {
+        showToast('Slow down with the starring!');
+        return;
+      }
       const icon = starBtn.querySelector('.post-star-icon');
       const count = starBtn.querySelector('.post-star-count');
       const label = starBtn.querySelector('.post-star-label');
@@ -210,7 +220,7 @@ function renderPostCommentInput(user) {
     <div class="comment-input-container">
       <div class="comment-input-avatar">${avatarContent}</div>
       <div class="comment-input-wrapper">
-        <input type="text" class="comment-input" id="post-comment-input" placeholder="Add a comment...">
+        <input type="text" class="comment-input" id="post-comment-input" placeholder="Add a comment..." maxlength="1000">
         <div class="comment-input-actions hidden" id="post-comment-actions">
           <button class="comment-cancel-btn" id="post-comment-cancel">Cancel</button>
           <button class="comment-submit-btn" id="post-comment-submit" disabled>Comment</button>
@@ -229,6 +239,16 @@ function renderPostCommentInput(user) {
   submitBtn.addEventListener('click', async () => {
     const text = input.value.trim();
     if (!text) return;
+    // Enforce max comment length
+    if (text.length > 1000) {
+      showToast('Comment is too long. Maximum 1000 characters.');
+      return;
+    }
+    // Client-side rate limit: 10 comments per minute
+    if (!rateLimit('add_post_comment', 10, 60000)) {
+      showToast('Slow down! You can comment up to 10 times per minute.');
+      return;
+    }
     submitBtn.disabled = true;
     const hash = window.location.hash;
     const postId = hash.replace('#/post/', '');

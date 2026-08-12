@@ -1,7 +1,7 @@
 import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
 import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
-import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast } from './utils.js';
+import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast, sanitizeCssUrl, rateLimit } from './utils.js';
 import { postCardHTML, setupPostCardActions } from './posts.js';
 
 export async function renderChannel(container, userId) {
@@ -29,11 +29,25 @@ export async function renderChannel(container, userId) {
   const bannerVal = channelUser.banner || '';
   let bannerHTML;
   if (bannerVal.includes('.')) {
-    // It's an image URL
-    bannerHTML = `<div class="channel-banner" style="background-image:url('${escapeHtml(bannerVal)}')"></div>`;
+    // It's an image URL — sanitize for CSS url() context
+    const safeBannerUrl = sanitizeCssUrl(bannerVal);
+    if (safeBannerUrl) {
+      // Use CSS.escape for the preset name and sanitized URL
+      bannerHTML = `<div class="channel-banner" style="background-image:url('${safeBannerUrl}')"></div>`;
+    } else {
+      bannerHTML = `<div class="channel-banner banner-default"></div>`;
+    }
   } else if (bannerVal) {
-    // It's a preset name
-    bannerHTML = `<div class="channel-banner banner-${escapeHtml(bannerVal)}"></div>`;
+    // It's a preset name — whitelist against known presets
+    const ALLOWED_PRESETS = new Set([
+      '', 'gradientSunset', 'gradientOcean', 'gradientAurora', 'gradientMidnight',
+      'gradientCherry', 'gradientForest', 'gradientLavender', 'gradientFire',
+      'checkersRed', 'checkersBlue', 'checkersGreen', 'checkersPurple',
+      'stripesCyan', 'stripesRed', 'dotsMonochrome', 'dotsColor',
+      'solidBlack', 'solidDark'
+    ]);
+    const safePreset = ALLOWED_PRESETS.has(bannerVal) ? bannerVal : '';
+    bannerHTML = `<div class="channel-banner banner-${CSS.escape(safePreset || 'default')}"></div>`;
   } else {
     // No banner set, use default gradient
     bannerHTML = `<div class="channel-banner banner-default"></div>`;
@@ -143,6 +157,11 @@ export async function renderChannel(container, userId) {
   if (notifyBtn) {
     notifyBtn.addEventListener('click', async () => {
       if (!me) { openAuthModal('login'); return; }
+      // Client-side rate limit for subscribe/unsubscribe: 20 per minute
+      if (!rateLimit('toggle_notify', 20, 60000)) {
+        showToast('Slow down with the subscriptions!');
+        return;
+      }
       const now = await toggleNotify(userId);
       notifyBtn.innerHTML = `${now ? BELL_SVG : BELL_OFF_SVG}<span>${now ? 'Notified' : 'Notify me'}</span>`;
       if (now) notifyBtn.classList.add('active'); else notifyBtn.classList.remove('active');
@@ -278,7 +297,8 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
   imageInput.addEventListener('input', () => {
     const url = imageInput.value.trim();
     if (url) {
-      imagePreview.style.backgroundImage = `url('${url}')`;
+      const safeUrl = sanitizeCssUrl(url);
+      imagePreview.style.backgroundImage = safeUrl ? `url('${safeUrl}')` : '';
     } else {
       imagePreview.style.backgroundImage = '';
     }
@@ -301,7 +321,16 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
     // Resolve banner value
     let banner = '';
     if (!imagePanel.classList.contains('hidden')) {
-      banner = imageInput.value.trim(); // URL or empty
+      const rawUrl = imageInput.value.trim();
+      // Validate URL scheme for banner images
+      if (rawUrl && !rawUrl.match(/^https?:\/\//i)) {
+        errEl.textContent = 'Banner URL must start with https:// or http://.';
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Save changes';
+        return;
+      }
+      banner = rawUrl;
     } else {
       banner = document.getElementById('edit-banner-preset').value; // preset id or empty
     }
@@ -368,6 +397,11 @@ function renderPostsPane(postsPane, posts, isMe, me, channelId) {
     postBtn.addEventListener('click', async () => {
       const text = postInput.value.trim();
       if (!text) return;
+      // Client-side rate limit: 5 posts per minute
+      if (!rateLimit('create_post', 5, 60000)) {
+        showToast('Slow down! You can post up to 5 times per minute.');
+        return;
+      }
       postBtn.disabled = true;
       postBtn.textContent = 'Posting...';
       try {

@@ -1,7 +1,7 @@
 import { getVideo, incrementViews, getComments, addComment, toggleNotify, isNotifying, getVideos, getSubscriberCount, onCommentsChange } from './db.js';
 import { getCurrentUser, onAuthChange } from './auth.js';
 import { videoCardHTML, sidebarVideoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, SEND_SVG } from './components.js';
-import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials, recordVideoWatch } from './utils.js';
+import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials, recordVideoWatch, rateLimit, validateVideoUrl } from './utils.js';
 
 let unsubscribeComments = null;
 
@@ -14,9 +14,20 @@ export async function renderWatch(container, videoId) {
     container.innerHTML = `<div class="empty-state"><h3>Video not found</h3><p>This video may have been removed.</p><a href="#/" class="btn btn-primary">Go Home</a></div>`;
     return;
   }
+  // Validate video URL scheme to prevent javascript: / data: injection
+  if (!validateVideoUrl(video.videoUrl)) {
+    container.innerHTML = `<div class="empty-state"><h3>Invalid video</h3><p>This video has an invalid source URL.</p><a href="#/" class="btn btn-primary">Go Home</a></div>`;
+    return;
+  }
 
-  await incrementViews(videoId);
-  const updatedVideo = { ...video, views: (video.views || 0) + 1 };
+  // Deduplicate view counts — only count once per session per video
+  const VIEW_KEY = `faketube_viewed_${videoId}`;
+  const alreadyViewed = sessionStorage.getItem(VIEW_KEY);
+  if (!alreadyViewed) {
+    await incrementViews(videoId);
+    sessionStorage.setItem(VIEW_KEY, '1');
+  }
+  const updatedVideo = { ...video, views: (video.views || 0) + (alreadyViewed ? 0 : 1) };
 
   // Record this watch in localStorage for the recommendation algorithm
   recordVideoWatch(updatedVideo);
@@ -112,6 +123,11 @@ export async function renderWatch(container, videoId) {
   // Notify buttons
   const handleNotify = async (e) => {
     if (!user) { openAuthModal('login'); return; }
+    // Client-side rate limit for subscribe/unsubscribe: 20 per minute
+    if (!rateLimit('toggle_notify', 20, 60000)) {
+      showToast('Slow down with the subscriptions!');
+      return;
+    }
     const btn = e.currentTarget;
     const cid = btn.dataset.channelId;
     const nowNotified = await toggleNotify(cid);
@@ -158,7 +174,7 @@ function renderCommentInput() {
     <div class="comment-input-container">
       <div class="comment-input-avatar">${avatarContent}</div>
       <div class="comment-input-wrapper">
-        <input type="text" class="comment-input" id="comment-input" placeholder="Add a comment...">
+        <input type="text" class="comment-input" id="comment-input" placeholder="Add a comment..." maxlength="1000">
         <div class="comment-input-actions hidden" id="comment-actions">
           <button class="comment-cancel-btn" id="comment-cancel">Cancel</button>
           <button class="comment-submit-btn" id="comment-submit" disabled>Comment</button>
@@ -177,6 +193,16 @@ function renderCommentInput() {
   submitBtn.addEventListener('click', async () => {
     const text = input.value.trim();
     if (!text) return;
+    // Enforce max comment length
+    if (text.length > 1000) {
+      showToast('Comment is too long. Maximum 1000 characters.');
+      return;
+    }
+    // Client-side rate limit: 10 comments per minute
+    if (!rateLimit('add_comment', 10, 60000)) {
+      showToast('Slow down! You can comment up to 10 times per minute.');
+      return;
+    }
     submitBtn.disabled = true;
     const hash = window.location.hash;
     const videoId = hash.replace('#/watch/', '');

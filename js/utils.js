@@ -36,10 +36,71 @@ export function truncate(str, maxLen = 100) {
 }
 
 export function escapeHtml(str) {
-  if (!str) return '';
+  if (typeof str !== 'string') return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/**
+ * Sanitize a URL for safe use in CSS url() context.
+ * Blocks javascript:, data:, vbscript: schemes and quotes that break out.
+ */
+export function sanitizeCssUrl(url) {
+  if (typeof url !== 'string' || !url) return '';
+  const trimmed = url.trim();
+  // Block dangerous schemes
+  if (/^(javascript|data|vbscript|blob):/i.test(trimmed)) return '';
+  // Only allow http:, https:, or relative paths
+  if (!/^(https?:\/\/|\/|\.\.?\/)/i.test(trimmed) && !trimmed.startsWith('/')) {
+    // If it looks like a plain URL without scheme, allow it (browser will treat as relative)
+    if (/^[^\s'"()<>]+$/i.test(trimmed)) return trimmed;
+    return '';
+  }
+  // Strip any quotes or parentheses that could break out of url()
+  return trimmed.replace(/[()'"\\]/g, '');
+}
+
+/**
+ * Validate that a URL uses an acceptable scheme for video sources.
+ * Allows http: and https: only.
+ */
+export function validateVideoUrl(url) {
+  if (typeof url !== 'string' || !url.trim()) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Simple client-side rate limiter.
+ * Returns true if the action is allowed, false if rate-limited.
+ * @param {string} key - localStorage key for this action type
+ * @param {number} maxCalls - max actions allowed in window
+ * @param {number} windowMs - time window in milliseconds
+ */
+export function rateLimit(key, maxCalls = 5, windowMs = 60000) {
+  try {
+    const now = Date.now();
+    const storageKey = `faketube_rl_${key}`;
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) {
+      localStorage.setItem(storageKey, JSON.stringify([now]));
+      return true;
+    }
+    const timestamps = JSON.parse(raw).filter(t => now - t < windowMs);
+    if (timestamps.length >= maxCalls) {
+      return false;
+    }
+    timestamps.push(now);
+    localStorage.setItem(storageKey, JSON.stringify(timestamps));
+    return true;
+  } catch {
+    return true; // If localStorage unavailable, allow action
+  }
 }
 
 export function getInitials(name) {
@@ -47,15 +108,32 @@ export function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
 }
 
+/**
+ * Generate a random ID using crypto API when available, falling back to Math.random.
+ * Note: Firestore auto-generates document IDs via addDoc, so this is only
+ * used for localStorage-based IDs (subscriber stars, etc.) where security
+ * impact is minimal.
+ */
 export function generateId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, '');
+  }
+  const arr = new Uint8Array(12);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(36)).join('');
+  }
+  // Fallback (insecure)
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
 }
 
 export function showToast(message) {
+  if (typeof message !== 'string') return;
   const container = document.getElementById('toast-container');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.textContent = message;
+  toast.textContent = message; // Safe: textContent, not innerHTML
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
@@ -135,18 +213,18 @@ const MAX_HISTORY_ENTRIES = 100;
  * Re-watching a video moves it to the top (updates timestamp).
  */
 export function recordVideoWatch(video) {
-  if (!video || !video.id) return;
+  if (!video || !video.id || typeof video.id !== 'string') return;
   try {
     const history = getWatchHistory();
     // Remove previous entry for this video if it exists (re-watch = fresh timestamp)
     const idx = history.findIndex(h => h.id === video.id);
     if (idx !== -1) history.splice(idx, 1);
-    // Add to front
+    // Sanitize fields before storing
     history.unshift({
-      id: video.id,
-      title: (video.title || '').toLowerCase(),
-      tags: (video.tags || []).map(t => (t || '').toLowerCase().trim()).filter(Boolean),
-      uploaderId: video.uploaderId || '',
+      id: video.id.substring(0, 100),
+      title: String(video.title || '').toLowerCase().substring(0, 200),
+      tags: Array.isArray(video.tags) ? video.tags.map(t => String(t || '').toLowerCase().trim().substring(0, 50)).filter(Boolean).slice(0, 20) : [],
+      uploaderId: String(video.uploaderId || '').substring(0, 100),
       ts: Date.now()
     });
     // Trim to max size

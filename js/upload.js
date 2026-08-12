@@ -1,7 +1,7 @@
 import { getCurrentUser, ensureUserRecord } from './auth.js';
 import { openAuthModal } from './components.js';
 import { createVideo } from './db.js';
-import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast } from './utils.js';
+import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast, validateVideoUrl, rateLimit } from './utils.js';
 
 export function renderUpload(container) {
   const user = getCurrentUser();
@@ -69,6 +69,11 @@ export function renderUpload(container) {
     const url = urlInput.value.trim();
     if (!url) {
       showUrlError('Please enter a video URL.');
+      return;
+    }
+    // Validate URL scheme — only http/https allowed
+    if (!validateVideoUrl(url)) {
+      showUrlError('Invalid URL scheme. Video URL must start with https:// or http://.');
       return;
     }
 
@@ -144,6 +149,16 @@ export function renderUpload(container) {
     const url = urlInput.value.trim();
     const title = titleInput.value.trim();
     if (!url || !title) return;
+    // Final validation before publishing
+    if (!validateVideoUrl(url)) {
+      showToast('Invalid video URL. Must use https:// or http://.');
+      return;
+    }
+    // Rate limit uploads: 3 per minute
+    if (!rateLimit('upload_video', 3, 60000)) {
+      showToast('Slow down! You can upload up to 3 videos per minute.');
+      return;
+    }
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Publishing...';
