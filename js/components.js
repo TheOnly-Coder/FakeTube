@@ -17,8 +17,11 @@ const USER_SVG = `<svg viewBox="0 0 24 24"><path d="M12,12c2.21,0,4-1.79,4-4s-1.
 const CHANNEL_SVG = `<svg viewBox="0 0 24 24"><path d="M4,6H2v14c0,1.1,0.9,2,2,2h14v-2H4V6z M20,2H8c-1.1,0-2,0.9-2,2v12c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V4C22,2.9,21.1,2,20,2z M20,16H8V4h12V16z"/></svg>`;
 const SIGNOUT_SVG = `<svg viewBox="0 0 24 24"><path d="M17,7l-1.41,1.41L18.17,11H8v2h10.17l-2.58,2.58L17,17l5-5L17,7z M4,5h8V3H4C2.9,3,2,3.9,2,5v14c0,1.1,0.9,2,2,2h8v-2H4V5z"/></svg>`;
 const VIDEO_SVG = `<svg viewBox="0 0 24 24"><path d="M17,10.5V7c0-.55-.45-1-1-1H4c-.55,0-1,.45-1,1v10c0,.55.45,1,1,1h12c.55,0,1-.45,1-1v-3.5l4,4v-11L17,10.5z"/></svg>`;
+const STAR_SVG = `<svg viewBox="0 0 24 24"><path d="M12,17.27L18.18,21l-1.64-7.03L22,9.24l-7.19-0.61L12,2L9.19,8.63L2,9.24l5.46,4.73L5.82,21L12,17.27z"/></svg>`;
+const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="M12,17.27L18.18,21l-1.64-7.03L22,9.24l-7.19-0.61L12,2L9.19,8.63L2,9.24l5.46,4.73L5.82,21L12,17.27z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
+const COMMENT_SVG = `<svg viewBox="0 0 24 24"><path d="M21.99,4c0-1.1-0.89-2-1.99-2H4c-1.1,0-2,0.9-2,2v12c0,1.1,0.9,2,2,2h14l4,4V4z"/></svg>`;
 
-export { SEARCH_SVG, UPLOAD_SVG, CLOSE_SVG, MENU_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, SEND_SVG, USER_SVG, CHANNEL_SVG, SIGNOUT_SVG, VIDEO_SVG };
+export { SEARCH_SVG, UPLOAD_SVG, CLOSE_SVG, MENU_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, SEND_SVG, USER_SVG, CHANNEL_SVG, SIGNOUT_SVG, VIDEO_SVG, STAR_SVG, STAR_OUTLINE_SVG, COMMENT_SVG };
 
 let menuOpen = false;
 let searchType = 'videos'; // 'videos' or 'channels'

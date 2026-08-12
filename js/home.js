@@ -1,6 +1,7 @@
-import { getVideos, searchVideos } from './db.js';
+import { getVideos, searchVideos, getSubscribedPosts } from './db.js';
 import { setupVideoCardClicks } from './components.js';
 import { formatViews, timeAgo, escapeHtml, getInitials, getRecommendedVideos } from './utils.js';
+import { postCardHTML, setupPostCardActions } from './posts.js';
 
 export async function renderHome(container, searchTerm) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
@@ -27,18 +28,46 @@ export async function renderHome(container, searchTerm) {
     return;
   }
 
-  if (videos.length === 0) {
+  if (videos.length === 0 && !searchTerm) {
+    // No videos at all — check if we should still show posts
+    const subPosts = searchTerm ? [] : await getSubscribedPostsSilent();
+    if (subPosts.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg>
+          <h3>No videos yet</h3>
+          <p>Be the first to share a video!</p>
+          <a href="#/how-to-upload" class="btn btn-primary">Learn how to upload</a>
+        </div>
+      `;
+      return;
+    }
+  }
+
+  if (searchTerm && videos.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
         <svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg>
-        <h3>${searchTerm ? 'No results found' : 'No videos yet'}</h3>
-        <p>${searchTerm ? 'Try different keywords' : 'Be the first to share a video!'}</p>
-        ${!searchTerm ? '<a href="#/how-to-upload" class="btn btn-primary">Learn how to upload</a>' : ''}
+        <h3>No results found</h3>
+        <p>Try different keywords</p>
       </div>
     `;
     return;
   }
 
+  let html = '<div class="home-page">';
+
+  // Show subscribed posts above videos (only on the main feed, not search)
+  if (!searchTerm) {
+    const subPosts = await getSubscribedPostsSilent();
+    if (subPosts.length > 0) {
+      html += `<div class="home-posts-section"><h2 class="home-posts-title">Posts from channels you follow</h2>`;
+      html += '<div class="posts-list">' + subPosts.map(p => postCardHTML(p, { showAuthor: true, showDelete: false })).join('') + '</div>';
+      html += '</div>';
+    }
+  }
+
+  // Video grid
   const gridHTML = videos.map(v => {
     const av = v.uploaderPhoto 
       ? `<img src="${escapeHtml(v.uploaderPhoto)}" alt="">` 
@@ -62,6 +91,19 @@ export async function renderHome(container, searchTerm) {
     `;
   }).join('');
 
-  container.innerHTML = `<div class="home-page"><div class="video-grid">${gridHTML}</div></div>`;
+  html += `<div class="video-grid">${gridHTML}</div></div>`;
+  container.innerHTML = html;
+
   setupVideoCardClicks(container);
+  setupPostCardActions(container);
+}
+
+/** Silent wrapper — returns [] if user not signed in or query fails */
+async function getSubscribedPostsSilent() {
+  try {
+    return await getSubscribedPosts(10);
+  } catch (e) {
+    console.warn('Could not load subscribed posts:', e);
+    return [];
+  }
 }

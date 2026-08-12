@@ -1,12 +1,13 @@
-import { getUser, getVideosByUser, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels } from './db.js';
+import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
-import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG } from './components.js';
+import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast } from './utils.js';
+import { postCardHTML, setupPostCardActions } from './posts.js';
 
 export async function renderChannel(container, userId) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
-  const [channelUser, videos] = await Promise.all([getUser(userId), getVideosByUser(userId)]);
+  const [channelUser, videos, posts] = await Promise.all([getUser(userId), getVideosByUser(userId), getPostsByUser(userId)]);
   if (!channelUser) {
     container.innerHTML = '<div class="empty-state"><h3>Channel not found</h3><a href="#/" class="btn btn-primary">Go Home</a></div>';
     return;
@@ -63,9 +64,11 @@ export async function renderChannel(container, userId) {
       </div>
       <div class="channel-tabs">
         <button class="channel-tab active" data-tab="videos">Videos</button>
+        <button class="channel-tab" data-tab="posts">Posts</button>
         <button class="channel-tab" data-tab="about">About</button>
       </div>
       <div id="tab-videos" class="video-grid"></div>
+      <div id="tab-posts" class="hidden"></div>
       <div id="tab-about" class="hidden"></div>
     </div>
   `;
@@ -73,6 +76,7 @@ export async function renderChannel(container, userId) {
   // Tab switching
   const tabs = container.querySelectorAll('.channel-tab');
   const videosPane = document.getElementById('tab-videos');
+  const postsPane = document.getElementById('tab-posts');
   const aboutPane = document.getElementById('tab-about');
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -80,9 +84,14 @@ export async function renderChannel(container, userId) {
       tab.classList.add('active');
       const target = tab.dataset.tab;
       videosPane.classList.toggle('hidden', target !== 'videos');
+      postsPane.classList.toggle('hidden', target !== 'posts');
       aboutPane.classList.toggle('hidden', target !== 'about');
     });
   });
+
+  // Posts pane content
+  setupPostCardActions(container);
+  renderPostsPane(postsPane, posts, isMe, me, userId);
 
   // About pane content
   const joinDate = channelUser.createdAt
@@ -310,6 +319,94 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
       btn.disabled = false;
       btn.textContent = 'Save changes';
     }
+  });
+}
+
+function renderPostsPane(postsPane, posts, isMe, me, channelId) {
+  if (posts.length === 0 && !isMe) {
+    postsPane.innerHTML = '<div class="empty-state"><p>This channel hasn\'t made any posts yet.</p></div>';
+    return;
+  }
+
+  // Build the posts list with optional Make Post form at top
+  let html = '';
+  if (isMe) {
+    html += `
+      <div class="make-post-section">
+        <div class="make-post-header">
+          <div class="make-post-avatar">
+            ${me.photoURL ? `<img src="${escapeHtml(me.photoURL)}" alt="">` : getInitials(me.displayName)}
+          </div>
+          <textarea id="make-post-input" placeholder="Share something with your subscribers..." rows="3" maxlength="1000"></textarea>
+        </div>
+        <div class="make-post-actions">
+          <span class="make-post-char-count" id="make-post-char-count">0 / 1000</span>
+          <button class="btn btn-primary" id="make-post-btn" disabled style="padding:8px 20px;font-size:13px;">Post</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (posts.length === 0 && isMe) {
+    html += '<div class="empty-state" style="padding:24px;"><p>No posts yet. Make your first post above!</p></div>';
+  } else {
+    html += '<div class="posts-list">' + posts.map(p => postCardHTML(p, { showAuthor: false, showDelete: isMe })).join('') + '</div>';
+  }
+
+  postsPane.innerHTML = html;
+
+  // Make Post logic
+  const postInput = document.getElementById('make-post-input');
+  const postBtn = document.getElementById('make-post-btn');
+  const charCount = document.getElementById('make-post-char-count');
+  if (postInput && postBtn) {
+    postInput.addEventListener('input', () => {
+      const len = postInput.value.length;
+      charCount.textContent = `${len} / 1000`;
+      postBtn.disabled = !postInput.value.trim();
+    });
+    postBtn.addEventListener('click', async () => {
+      const text = postInput.value.trim();
+      if (!text) return;
+      postBtn.disabled = true;
+      postBtn.textContent = 'Posting...';
+      try {
+        const postId = await createPost({
+          text,
+          authorId: me.uid,
+          authorName: me.displayName,
+          authorPhoto: me.photoURL || ''
+        });
+        showToast('Post published!');
+        // Re-render posts pane to show new post
+        const newPosts = await getPostsByUser(channelId);
+        renderPostsPane(postsPane, newPosts, isMe, me, channelId);
+      } catch (err) {
+        console.error('Post creation error:', err);
+        showToast('Could not create post. Check Firestore rules.');
+        postBtn.disabled = false;
+        postBtn.textContent = 'Post';
+      }
+    });
+  }
+
+  // Delete post handlers
+  postsPane.querySelectorAll('.post-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isMe) return;
+      if (!confirm('Delete this post?')) return;
+      try {
+        await deletePost(btn.dataset.postId);
+        showToast('Post deleted');
+        const newPosts = await getPostsByUser(channelId);
+        renderPostsPane(postsPane, newPosts, isMe, me, channelId);
+      } catch (err) {
+        console.error('Delete post error:', err);
+        showToast('Could not delete post.');
+      }
+    });
   });
 }
 

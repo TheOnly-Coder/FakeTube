@@ -165,3 +165,137 @@ export async function searchChannels(searchTerm) {
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(u => u.displayName && u.displayName.toLowerCase().includes(term));
 }
+
+// ---- Posts ----
+export async function createPost(postData) {
+  const ref = await addDoc(collection(db, 'posts'), {
+    ...postData,
+    starCount: 0,
+    createdAt: Date.now()
+  });
+  return ref.id;
+}
+
+export async function getPost(postId) {
+  const snap = await getDoc(doc(db, 'posts', postId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() };
+}
+
+export async function getPostsByUser(userId, count = 50) {
+  const q = query(
+    collection(db, 'posts'),
+    where('authorId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(count)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Get posts from channels the current user is subscribed to.
+ * Returns posts ordered by newest first, up to `count`.
+ */
+export async function getSubscribedPosts(count = 20) {
+  const user = getCurrentUser();
+  if (!user) return [];
+
+  // Get all subscriptions for current user
+  const subSnap = await getDocs(query(
+    collection(db, 'subscribers'),
+    where('subscriberId', '==', user.uid)
+  ));
+  if (subSnap.empty) return [];
+
+  const channelIds = subSnap.docs.map(d => d.data().channelId);
+  if (channelIds.length === 0) return [];
+
+  // Firestore 'in' queries support max 30 items
+  const chunks = [];
+  for (let i = 0; i < channelIds.length; i += 30) {
+    chunks.push(channelIds.slice(i, i + 30));
+  }
+
+  let allPosts = [];
+  for (const chunk of chunks) {
+    const q = query(
+      collection(db, 'posts'),
+      where('authorId', 'in', chunk),
+      orderBy('createdAt', 'desc'),
+      limit(count)
+    );
+    const snap = await getDocs(q);
+    allPosts.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }
+
+  // Sort all by newest first and trim
+  allPosts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return allPosts.slice(0, count);
+}
+
+export async function deletePost(postId) {
+  const post = await getPost(postId);
+  if (!post) return;
+  const user = getCurrentUser();
+  if (post.authorId !== user?.uid) return;
+  await deleteDoc(doc(db, 'posts', postId));
+  // Delete post comments
+  const snap = await getDocs(query(collection(db, 'postComments'), where('postId', '==', postId)));
+  for (const d of snap.docs) await deleteDoc(doc(db, 'postComments', d.id));
+  // Delete stars
+  const starSnap = await getDocs(query(collection(db, 'postStars'), where('postId', '==', postId)));
+  for (const d of starSnap.docs) await deleteDoc(doc(db, 'postStars', d.id));
+}
+
+// ---- Post Stars ----
+export async function togglePostStar(postId) {
+  const user = getCurrentUser();
+  if (!user) return false;
+  const starDocId = `${postId}_${user.uid}`;
+  const starRef = doc(db, 'postStars', starDocId);
+  const snap = await getDoc(starRef);
+
+  if (snap.exists()) {
+    await deleteDoc(starRef);
+    await updateDoc(doc(db, 'posts', postId), { starCount: increment(-1) });
+    return false;
+  } else {
+    await setDoc(starRef, { postId, userId: user.uid, createdAt: Date.now() });
+    await updateDoc(doc(db, 'posts', postId), { starCount: increment(1) });
+    return true;
+  }
+}
+
+export async function isPostStarred(postId) {
+  const user = getCurrentUser();
+  if (!user) return false;
+  const snap = await getDoc(doc(db, 'postStars', `${postId}_${user.uid}`));
+  return snap.exists();
+}
+
+// ---- Post Comments ----
+export async function addPostComment(postId, text, user) {
+  const ref = await addDoc(collection(db, 'postComments'), {
+    postId,
+    text,
+    userId: user.uid,
+    userName: user.displayName,
+    userPhoto: user.photoURL || '',
+    createdAt: Date.now()
+  });
+  return ref.id;
+}
+
+export function onPostCommentsChange(postId, callback) {
+  const q = query(
+    collection(db, 'postComments'),
+    where('postId', '==', postId),
+    orderBy('createdAt', 'asc')
+  );
+  const unsubscribe = onSnapshot(q, (snap) => {
+    const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(comments);
+  });
+  return unsubscribe;
+}

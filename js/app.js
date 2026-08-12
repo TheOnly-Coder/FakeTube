@@ -9,6 +9,9 @@ function parseRoute() {
   if (hash === '#/' || hash === '#' || hash === '') return { page: 'home' };
   if (hash === '#/how-to-upload') return { page: 'tutorial' };
 
+  const postMatch = hash.match(/^#\/post\/(.+)$/);
+  if (postMatch) return { page: 'post', id: postMatch[1] };
+
   const watchMatch = hash.match(/^#\/watch\/(.+)$/);
   if (watchMatch) return { page: 'watch', id: watchMatch[1] };
 
@@ -158,6 +161,7 @@ async function bootstrap() {
   const { renderHome } = modules.home;
   const { renderWatch } = modules.watch;
   const { renderChannel, renderChannelSearch } = modules.channel;
+  const { renderPost } = modules.posts;
   const { renderUpload } = modules.upload;
 
   // Navigation
@@ -173,6 +177,9 @@ async function bootstrap() {
           break;
         case 'watch':
           await renderWatch(mainContent, r.id);
+          break;
+        case 'post':
+          await renderPost(mainContent, r.id);
           break;
         case 'channel':
           await renderChannel(mainContent, r.id);
@@ -219,16 +226,17 @@ async function bootstrap() {
 // Dynamic import loader - loads all Firebase-dependent modules
 // No ?v= on imports to avoid module instance split with static imports
 async function loadFirebaseModules() {
-  const [, auth, components, home, watch, channel, upload] = await Promise.all([
+  const [, auth, components, home, watch, channel, posts, upload] = await Promise.all([
     import('./firebase-config.js'),
     import('./auth.js'),
     import('./components.js'),
     import('./home.js'),
     import('./watch.js'),
     import('./channel.js'),
+    import('./posts.js'),
     import('./upload.js'),
   ]);
-  return { auth, components, home, watch, channel, upload };
+  return { auth, components, home, watch, channel, posts, upload };
 }
 
 // Start the app
