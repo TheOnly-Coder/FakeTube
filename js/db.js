@@ -153,7 +153,8 @@ export async function searchVideos(searchTerm) {
   return allVideos.filter(v =>
     (v.title && v.title.toLowerCase().includes(term)) ||
     (v.description && v.description.toLowerCase().includes(term)) ||
-    (v.uploaderName && v.uploaderName.toLowerCase().includes(term))
+    (v.uploaderName && v.uploaderName.toLowerCase().includes(term)) ||
+    (v.tags && Array.isArray(v.tags) && v.tags.some(t => (t || '').toLowerCase().includes(term)))
   );
 }
 

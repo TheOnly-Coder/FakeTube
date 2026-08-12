@@ -1,7 +1,7 @@
 import { getVideo, incrementViews, getComments, addComment, toggleNotify, isNotifying, getVideos, getSubscriberCount, onCommentsChange } from './db.js';
 import { getCurrentUser, onAuthChange } from './auth.js';
 import { videoCardHTML, sidebarVideoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, SEND_SVG } from './components.js';
-import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials } from './utils.js';
+import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials, recordVideoWatch } from './utils.js';
 
 let unsubscribeComments = null;
 
@@ -17,6 +17,9 @@ export async function renderWatch(container, videoId) {
 
   await incrementViews(videoId);
   const updatedVideo = { ...video, views: (video.views || 0) + 1 };
+
+  // Record this watch in localStorage for the recommendation algorithm
+  recordVideoWatch(updatedVideo);
 
   // Get subscriber count
   let subCount = 0;

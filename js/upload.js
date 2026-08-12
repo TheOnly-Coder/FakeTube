@@ -41,6 +41,8 @@ export function renderUpload(container) {
             <div class="upload-fields">
               <input type="text" id="video-title" placeholder="Title (required)" maxlength="100">
               <textarea id="video-desc" placeholder="Tell viewers about your video (optional)" maxlength="5000" rows="4"></textarea>
+              <input type="text" id="video-tags" placeholder="Tags (comma-separated, e.g. gaming, tutorial, funny)" maxlength="300" style="font-size:14px;">
+              <p style="font-size:12px;color:var(--text-dimmed);margin:-8px 0 0;">Tags help the recommendation algorithm suggest your video to the right viewers.</p>
             </div>
           </div>
           <div class="upload-actions">
@@ -132,6 +134,7 @@ export function renderUpload(container) {
     urlInput.value = '';
     titleInput.value = '';
     document.getElementById('video-desc').value = '';
+    document.getElementById('video-tags').value = '';
     thumbnailDataUrl = '';
     videoDuration = '';
     submitBtn.disabled = true;
@@ -148,9 +151,13 @@ export function renderUpload(container) {
     try {
       await ensureUserRecord(user.uid);
 
+      const tagsRaw = document.getElementById('video-tags').value.trim();
+      const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+
       const videoId = await createVideo({
         title,
         description: document.getElementById('video-desc').value.trim(),
+        tags,
         uploaderId: user.uid,
         uploaderName: user.displayName,
         uploaderPhoto: user.photoURL || '',

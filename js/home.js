@@ -1,6 +1,6 @@
 import { getVideos, searchVideos } from './db.js';
 import { setupVideoCardClicks } from './components.js';
-import { formatViews, timeAgo, escapeHtml, getInitials } from './utils.js';
+import { formatViews, timeAgo, escapeHtml, getInitials, getRecommendedVideos } from './utils.js';
 
 export async function renderHome(container, searchTerm) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
@@ -11,6 +11,8 @@ export async function renderHome(container, searchTerm) {
       videos = await searchVideos(searchTerm);
     } else {
       videos = await getVideos(50);
+      // Apply recommendation algorithm (localStorage-based, no Firebase cost)
+      videos = getRecommendedVideos(videos);
     }
   } catch (err) {
     console.error('Failed to load videos:', err);
