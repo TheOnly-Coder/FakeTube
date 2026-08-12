@@ -1773,42 +1773,88 @@ img {
   max-width: 700px;
 }
 
+/* ========== SHADOW (was missing) ========== */
+:root {
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
 /* ========== RESPONSIVE ========== */
+
+/* --- Tablet (≤ 1024px) --- */
 @media (max-width: 1024px) {
   .watch-page {
     grid-template-columns: 1fr;
   }
   .watch-sidebar {
     max-height: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .sidebar-video-card {
+    margin-bottom: 0;
   }
 }
 
+/* --- Small tablet / large phone (≤ 768px) --- */
 @media (max-width: 768px) {
   .header-center {
     display: none;
   }
-  .video-grid {
-    grid-template-columns: 1fr;
+  .header-left {
+    min-width: auto;
   }
+  .header-right {
+    min-width: auto;
+    gap: 4px;
+  }
+
+  .video-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
   .upload-preview {
     flex-direction: column;
   }
   .upload-thumbnail-preview {
     width: 100%;
   }
+
   .channel-banner {
     height: 120px;
+    border-radius: 0;
+    margin-bottom: 12px;
   }
   .channel-page-avatar {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
   }
   .channel-page-name {
     font-size: 20px;
   }
+  .channel-header {
+    gap: 12px;
+  }
+
   .video-title {
     font-size: 16px;
   }
+  .video-actions-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .video-action-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .action-btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+
   .channel-bar {
     flex-direction: column;
     align-items: flex-start;
@@ -1817,21 +1863,57 @@ img {
   .channel-bar-right {
     align-self: flex-end;
   }
-}
 
-@media (max-width: 480px) {
-  .main-content {
+  .modal-content {
+    margin: 16px;
+    padding: 24px;
+    max-width: calc(100% - 32px);
+  }
+
+  .comments-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .upload-page {
+    max-width: 100%;
+  }
+  .upload-url-section {
     padding: 16px;
   }
+  .upload-dropzone {
+    padding: 40px 16px;
+  }
+
+  .user-menu {
+    right: 0;
+    min-width: 200px;
+  }
+}
+
+/* --- Phone (≤ 480px) --- */
+@media (max-width: 480px) {
+  :root {
+    --header-height: 48px;
+  }
+
+  .main-content {
+    padding: 12px;
+  }
+
   .header {
-    padding: 0 8px;
+    padding: 0 10px;
     gap: 8px;
+    height: var(--header-height);
   }
   .header-left {
     min-width: auto;
+    gap: 8px;
   }
   .header-right {
     min-width: auto;
+    gap: 2px;
   }
   .logo-text {
     display: none;
@@ -1839,12 +1921,443 @@ img {
   .btn-upload span {
     display: none;
   }
-  .modal-content {
-    margin: 16px;
-    padding: 24px;
+  .btn-upload {
+    padding: 8px;
+  }
+
+  /* Video grid — 1 column on small phones */
+  .video-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .video-card {
+    display: flex;
+    gap: 10px;
+  }
+  .video-card-thumbnail {
+    width: 168px;
+    min-width: 168px;
+    padding-top: 0;
+    height: 94px;
+    border-radius: var(--radius-sm);
+  }
+  .video-card-thumbnail img {
+    position: static;
+    width: 100%;
+    height: 100%;
+  }
+  .video-card-info {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .video-card-avatar {
+    display: none;
+  }
+  .video-card-title {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+  .video-card-stats {
+    font-size: 11px;
+  }
+  .video-card-channel {
+    font-size: 11px;
+  }
+  .video-card-duration {
+    bottom: 4px;
+    right: 4px;
+    font-size: 11px;
+    padding: 1px 4px;
+  }
+
+  /* Watch page */
+  .video-player-container {
+    border-radius: 0;
+  }
+  .video-details {
+    padding: 10px 0;
+  }
+  .video-title {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .video-stats {
+    font-size: 13px;
+  }
+  .action-btn {
+    padding: 8px 10px;
+    font-size: 13px;
+    gap: 4px;
+  }
+  .action-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Channel bar on watch page */
+  .channel-bar {
+    padding: 12px 0;
+  }
+  .channel-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .channel-name-link {
+    font-size: 13px;
+  }
+  .channel-sub-count {
+    font-size: 11px;
+  }
+  .btn-notify {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .btn-notify svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Description */
+  .video-description {
+    padding: 10px 12px;
+    margin-top: 12px;
+    border-radius: var(--radius-sm);
+  }
+  .description-stats {
+    font-size: 12px;
+  }
+  .description-text {
+    font-size: 13px;
+    max-height: 48px;
+  }
+
+  /* Comments */
+  .comments-section {
+    margin-top: 16px;
+  }
+  .comments-count {
+    font-size: 15px;
+  }
+  .comment-input-container {
+    gap: 8px;
+  }
+  .comment-input-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  .comment-input {
+    font-size: 14px; /* prevent iOS zoom on focus */
+  }
+  .comment-item {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  .comment-author {
+    font-size: 12px;
+  }
+  .comment-text {
+    font-size: 13px;
+  }
+
+  /* Sidebar on watch page */
+  .watch-sidebar {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .sidebar-video-card {
+    margin-bottom: 0;
   }
   .sidebar-video-thumb {
     width: 140px;
     height: 80px;
+  }
+  .sidebar-video-title {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+  .sidebar-video-channel,
+  .sidebar-video-stats {
+    font-size: 11px;
+  }
+
+  /* Channel page */
+  .channel-banner {
+    height: 100px;
+    padding: 16px;
+    border-radius: 0;
+  }
+  .channel-page-avatar {
+    width: 48px;
+    height: 48px;
+  }
+  .channel-page-name {
+    font-size: 16px;
+  }
+  .channel-page-handle {
+    font-size: 12px;
+  }
+  .channel-page-stats {
+    font-size: 12px;
+  }
+  .channel-page-bio {
+    font-size: 13px;
+  }
+  .channel-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .channel-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .channel-tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Upload page */
+  .upload-page h1 {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+  .upload-url-section {
+    padding: 12px;
+  }
+  .upload-url-hint {
+    padding: 10px 12px;
+  }
+  .upload-url-hint h4 {
+    font-size: 12px;
+  }
+  .upload-url-hint ul {
+    font-size: 11px;
+  }
+  .upload-dropzone {
+    padding: 32px 12px;
+    margin-bottom: 16px;
+  }
+  .upload-dropzone svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+  }
+  .upload-dropzone p {
+    font-size: 14px;
+  }
+  .upload-preview {
+    padding: 12px;
+    gap: 12px;
+  }
+  .upload-fields input {
+    font-size: 16px; /* prevent iOS zoom */
+  }
+  .upload-fields textarea {
+    font-size: 16px; /* prevent iOS zoom */
+    min-height: 60px;
+  }
+  .upload-actions {
+    flex-direction: column;
+  }
+  .upload-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Auth modal — nearly full screen on phones */
+  .modal-content {
+    margin: 8px;
+    padding: 20px 16px;
+    max-width: calc(100% - 16px);
+    border-radius: var(--radius-md);
+    max-height: calc(100vh - 16px);
+  }
+  .modal-close {
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+  }
+  .auth-modal h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  .auth-form input {
+    padding: 12px 14px;
+    font-size: 16px; /* prevent iOS zoom */
+  }
+  .auth-submit-btn {
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  /* User menu */
+  .user-menu {
+    right: 0;
+    left: 0;
+    min-width: 0;
+    width: 100%;
+    max-width: 280px;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  /* Posts */
+  .post-card {
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: var(--radius-sm);
+  }
+  .post-card-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .post-card-text {
+    font-size: 13px;
+  }
+  .post-actions {
+    gap: 12px;
+  }
+  .post-star-btn,
+  .post-comment-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+  .post-star-btn svg,
+  .post-comment-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .make-post-section {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .make-post-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+  .make-post-header textarea {
+    font-size: 14px; /* prevent iOS zoom */
+    padding: 6px 0;
+  }
+
+  /* Toast */
+  #toast-container {
+    bottom: 16px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    align-items: stretch;
+  }
+  .toast {
+    text-align: center;
+    font-size: 13px;
+    padding: 10px 16px;
+  }
+
+  /* Search dropdown */
+  .search-dropdown {
+    left: -60px;
+    right: -60px;
+  }
+  .channel-search-item {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  .channel-search-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+  .channel-search-name {
+    font-size: 14px;
+  }
+
+  /* Home posts section */
+  .home-posts-title {
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  .posts-list {
+    max-width: 100%;
+  }
+
+  /* Empty state */
+  .empty-state {
+    padding: 40px 16px;
+  }
+  .empty-state h3 {
+    font-size: 16px;
+  }
+  .empty-state p {
+    font-size: 13px;
+  }
+  .empty-state svg {
+    width: 56px;
+    height: 56px;
+  }
+
+  /* Channel settings (edit mode) */
+  .channel-settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Very small phones (≤ 360px) --- */
+@media (max-width: 360px) {
+  .video-card-thumbnail {
+    width: 140px;
+    min-width: 140px;
+    height: 80px;
+  }
+  .video-card-title {
+    font-size: 12px;
+  }
+  .sidebar-video-thumb {
+    width: 120px;
+    height: 68px;
+  }
+  .action-btn span {
+    display: none;
+  }
+}
+
+/* --- Touch target improvements (apply to touch devices) --- */
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+  }
+  .action-btn {
+    min-height: 44px;
+  }
+  .channel-tab {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .user-menu-item {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .search-dropdown-item {
+    min-height: 44px;
+  }
+  .post-star-btn,
+  .post-comment-btn {
+    min-height: 44px;
+  }
+  .comment-like-btn {
+    min-height: 44px;
   }
 }
