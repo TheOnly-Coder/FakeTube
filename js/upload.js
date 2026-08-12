@@ -19,11 +19,11 @@ export function renderUpload(container) {
   container.innerHTML = `
     <div class="upload-page">
       <h1>Share a Video</h1>
-      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">
-        Paste a direct link to a video file (MP4, WebM, OGG). You can host videos on
-        <a href="https://github.com" target="_blank" style="color:var(--accent-blue)">GitHub Releases</a>,
-        <a href="https://drive.google.com" target="_blank" style="color:var(--accent-blue)">Google Drive</a>,
-        or any direct link.
+      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px;">
+        Paste a direct link to an MP4 video file.
+      </p>
+      <p style="margin-bottom:24px;">
+        <a href="#/how-to-upload" style="color:var(--accent-blue);font-size:14px;font-weight:500;">Not sure how? Follow the step-by-step guide →</a>
       </p>
       <div class="upload-form" id="upload-form">
         <div class="upload-url-section">
