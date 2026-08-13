@@ -249,21 +249,20 @@ export async function renderFlappyBird(container) {
 
     // Pipes
     for (const p of pipes) {
-      // Top pipe
-      ctx.save();
-      ctx.translate(0, 0);
-      // Draw top pipe: clip to above the gap, draw full pipe image offset up
+      const s = SCALE;
+      // Top pipe — flip vertically so cap faces the gap
       const topPipeH = p.topH;
-      // We draw the pipe sprite (320 tall) positioned so bottom aligns with topH
-      const srcH = topPipeH;
-      const srcY = sprites.pipe.height - srcH;
-      if (srcH > 0) {
+      if (topPipeH > 0) {
+        ctx.save();
+        ctx.translate(p.x * s, 0);
+        ctx.scale(1, -1);
         ctx.drawImage(sprites.pipe,
-          0, srcY, PIPE_WIDTH, srcH,
-          p.x * s, 0, PIPE_WIDTH * s, topPipeH * s
+          0, 0, PIPE_WIDTH, topPipeH,
+          0, -topPipeH * s, PIPE_WIDTH * s, topPipeH * s
         );
+        ctx.restore();
       }
-      // Bottom pipe: starts at topH + PIPE_GAP
+      // Bottom pipe — drawn normally (cap at top, facing the gap)
       const bottomY = p.topH + PIPE_GAP;
       const bottomH = BG_H - GROUND_H - bottomY;
       if (bottomH > 0) {
@@ -272,7 +271,6 @@ export async function renderFlappyBird(container) {
           p.x * s, bottomY * s, PIPE_WIDTH * s, bottomH * s
         );
       }
-      ctx.restore();
     }
 
     // Ground

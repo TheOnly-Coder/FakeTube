@@ -28,33 +28,6 @@ export async function renderHome(container, searchTerm) {
     return;
   }
 
-  if (videos.length === 0 && !searchTerm) {
-    // No videos at all — check if we should still show posts
-    const subPosts = searchTerm ? [] : await getSubscribedPostsSilent();
-    if (subPosts.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg>
-          <h3>No videos yet</h3>
-          <p>Be the first to share a video!</p>
-          <a href="#/how-to-upload" class="btn btn-primary">Learn how to upload</a>
-        </div>
-      `;
-      return;
-    }
-  }
-
-  if (searchTerm && videos.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg>
-        <h3>No results found</h3>
-        <p>Try different keywords</p>
-      </div>
-    `;
-    return;
-  }
-
   let html = '<div class="home-page">';
 
   // Show subscribed posts above videos (only on the main feed, not search)
@@ -67,29 +40,36 @@ export async function renderHome(container, searchTerm) {
     }
   }
 
-  // Video grid
-  const gridHTML = videos.map(v => {
-    const av = v.uploaderPhoto 
-      ? `<img src="${escapeHtml(v.uploaderPhoto)}" alt="">` 
-      : getInitials(v.uploaderName);
-    return `
-      <div class="video-card" data-video-id="${v.id}">
-        <div class="video-card-thumbnail">
-          ${v.thumbnailUrl 
-            ? `<img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" loading="lazy">` 
-            : ''}
-        </div>
-        <div class="video-card-info">
-          <div class="video-card-avatar" data-channel-id="${v.uploaderId}">${av}</div>
-          <div class="video-card-meta">
-            <div class="video-card-title">${escapeHtml(v.title)}</div>
-            <div class="video-card-channel" data-channel-id="${v.uploaderId}">${escapeHtml(v.uploaderName)}</div>
-            <div class="video-card-stats">${formatViews(v.views)} &middot; ${timeAgo(v.createdAt)}</div>
+  // Video grid (always rendered — shows inline empty message if no videos)
+  let gridHTML = '';
+  if (videos.length > 0) {
+    gridHTML = videos.map(v => {
+      const av = v.uploaderPhoto 
+        ? `<img src="${escapeHtml(v.uploaderPhoto)}" alt="">` 
+        : getInitials(v.uploaderName);
+      return `
+        <div class="video-card" data-video-id="${v.id}">
+          <div class="video-card-thumbnail">
+            ${v.thumbnailUrl 
+              ? `<img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" loading="lazy">` 
+              : ''}
+          </div>
+          <div class="video-card-info">
+            <div class="video-card-avatar" data-channel-id="${v.uploaderId}">${av}</div>
+            <div class="video-card-meta">
+              <div class="video-card-title">${escapeHtml(v.title)}</div>
+              <div class="video-card-channel" data-channel-id="${v.uploaderId}">${escapeHtml(v.uploaderName)}</div>
+              <div class="video-card-stats">${formatViews(v.views)} &middot; ${timeAgo(v.createdAt)}</div>
+            </div>
           </div>
         </div>
-      </div>
-    `;
-  }).join('');
+      `;
+    }).join('');
+  } else if (!searchTerm) {
+    gridHTML = '<div class="empty-state" style="grid-column:1/-1;"><svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg><h3>No videos yet</h3><p>Be the first to share a video!</p></div>';
+  } else {
+    gridHTML = '<div class="empty-state" style="grid-column:1/-1;"><h3>No results found</h3><p>Try different keywords</p></div>';
+  }
 
   html += `<div class="video-grid">${gridHTML}</div>`;
 
