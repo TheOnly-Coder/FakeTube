@@ -6,7 +6,7 @@ import {
   updateProfile, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { resolveChannelId, getUser } from './db.js';
 import { showToast, rateLimit } from './utils.js';
 
