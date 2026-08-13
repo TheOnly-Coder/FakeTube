@@ -4,6 +4,11 @@ const header = document.getElementById('header');
 const mainContent = document.getElementById('main-content');
 
 // --- Route Parser (no imports needed) ---
+// Canonical channel aliases — maps friendly names to Firestore UIDs
+const CHANNEL_ALIASES = {
+  'FakeTube': '3EameaHde0Wx4MZTGO4kCn6YP8f2'
+};
+
 function parseRoute() {
   const hash = window.location.hash || '#/';
   if (hash === '#/' || hash === '#' || hash === '') return { page: 'home' };
@@ -16,7 +21,12 @@ function parseRoute() {
   if (watchMatch) return { page: 'watch', id: watchMatch[1] };
 
   const channelMatch = hash.match(/^#\/channel\/(.+)$/);
-  if (channelMatch) return { page: 'channel', id: channelMatch[1] };
+  if (channelMatch) {
+    const rawId = channelMatch[1];
+    // Resolve alias to canonical UID
+    const resolvedId = CHANNEL_ALIASES[rawId] || rawId;
+    return { page: 'channel', id: resolvedId };
+  }
 
   if (hash === '#/upload') return { page: 'upload' };
 
