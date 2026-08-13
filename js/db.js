@@ -197,28 +197,35 @@ export function onCommentsChange(videoId, callback) {
 export async function toggleNotify(channelId) {
   const user = getCurrentUser();
   if (!user) return false;
+
+  // Resolve the actual channel ID (follow migration redirects)
+  // so subscriber docs and count updates hit the right doc
+  const channelUser = await getUser(channelId);
+  const resolvedId = channelUser ? channelUser.id : channelId;
+
   // Prevent self-subscription (compare against resolved channel ID)
-  if (channelId === resolveChannelId(user.uid)) return false;
+  if (resolvedId === resolveChannelId(user.uid)) return false;
+
   // Subscriber doc ID always uses auth UID for the subscriber part
-  const subDocId = `${channelId}_${user.uid}`;
+  const subDocId = `${resolvedId}_${user.uid}`;
   const subRef = doc(db, 'subscribers', subDocId);
   const snap = await getDoc(subRef);
 
   if (snap.exists()) {
     // Unsubscribe
     await deleteDoc(subRef);
-    await updateDoc(doc(db, 'users', channelId), {
+    await updateDoc(doc(db, 'users', resolvedId), {
       subscriberCount: increment(-1)
     });
     return false;
   } else {
     // Subscribe
     await setDoc(subRef, {
-      channelId,
+      channelId: resolvedId,
       subscriberId: user.uid,
       createdAt: Date.now()
     });
-    await updateDoc(doc(db, 'users', channelId), {
+    await updateDoc(doc(db, 'users', resolvedId), {
       subscriberCount: increment(1)
     });
     return true;
@@ -407,7 +414,7 @@ export async function migrateChannelId(oldId, newId) {
     const oldData = oldSnap.data();
     // Remove serverTimestamp fields that can't be re-written as-is
     const { createdAt, ...rest } = oldData;
-    await setDoc(doc(db, 'users', newId), { ...rest, createdAt });
+    await setDoc(doc(db, 'users', newId), { ...rest, createdAt, authUid: oldId });
 
     // 2. Update all videos: uploaderId → newId
     const vidSnap = await getDocs(query(collection(db, 'videos'), where('uploaderId', '==', oldId)));

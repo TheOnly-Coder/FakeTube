@@ -20,6 +20,9 @@ function parseRoute() {
 
   if (hash === '#/upload') return { page: 'upload' };
 
+  const gameMatch = hash.match(/^#\/Games\/(.+)$/);
+  if (gameMatch) return { page: 'game', id: gameMatch[1] };
+
   const searchMatch = hash.match(/^#\/search\/channels\/(.+)$/);
   if (searchMatch) return { page: 'search-channels', term: decodeURIComponent(searchMatch[1]) };
 
@@ -106,6 +109,17 @@ function renderTutorial(container) {
       <div style="text-align:center;margin-top:32px;">
         <a href="#/upload" class="btn btn-primary" style="padding:12px 32px;font-size:16px;">Share a Video</a>
       </div>
+    </div>
+  `;
+}
+
+// --- Game Page (no Firebase needed) ---
+function renderGamePage(container, gameId) {
+  container.innerHTML = `
+    <div style="max-width:700px;margin:0 auto;text-align:center;">
+      <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;color:#f1f1f1;">${gameId.replace(/-/g, ' ')}</h1>
+      <p style="color:#aaa;margin-bottom:32px;">This game hasn't been implemented yet. Check back later!</p>
+      <a href="#/" class="btn btn-primary">Back to Home</a>
     </div>
   `;
 }
@@ -204,6 +218,9 @@ async function bootstrap() {
           break;
         case 'upload':
           renderUpload(mainContent);
+          break;
+        case 'game':
+          renderGamePage(mainContent, r.id);
           break;
         case 'search':
           await renderHome(mainContent, r.term);

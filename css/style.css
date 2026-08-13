@@ -1773,6 +1773,60 @@ img {
   max-width: 700px;
 }
 
+/* Games section */
+.games-section {
+  margin-bottom: 32px;
+}
+.games-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.game-tile {
+  display: block;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: transform var(--transition-fast);
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--bg-surface);
+}
+.game-tile:hover {
+  transform: scale(1.02);
+}
+.game-tile-image {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  overflow: hidden;
+}
+.game-tile-image img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.game-tile-title {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
 /* ========== SHADOW (was missing) ========== */
 :root {
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);

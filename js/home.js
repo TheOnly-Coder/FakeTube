@@ -91,7 +91,26 @@ export async function renderHome(container, searchTerm) {
     `;
   }).join('');
 
-  html += `<div class="video-grid">${gridHTML}</div></div>`;
+  html += `<div class="video-grid">${gridHTML}</div>`;
+
+  // Games section (always shown on main feed, not search)
+  if (!searchTerm) {
+    html += `
+      <div class="games-section">
+        <h2 class="games-title">Games</h2>
+        <div class="games-grid">
+          <a href="#/Games/FlappyBird" class="game-tile">
+            <div class="game-tile-image">
+              <img src="games/flappybird/flappybird.jpeg" alt="Flappy Bird" loading="lazy">
+              <div class="game-tile-title">Flappy Bird</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
+  html += '</div>';
   container.innerHTML = html;
 
   setupVideoCardClicks(container);
