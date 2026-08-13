@@ -20,9 +20,6 @@ function parseRoute() {
 
   if (hash === '#/upload') return { page: 'upload' };
 
-  const gameMatch = hash.match(/^#\/Games\/(.+)$/);
-  if (gameMatch) return { page: 'game', id: gameMatch[1] };
-
   const searchMatch = hash.match(/^#\/search\/channels\/(.+)$/);
   if (searchMatch) return { page: 'search-channels', term: decodeURIComponent(searchMatch[1]) };
 
@@ -113,23 +110,6 @@ function renderTutorial(container) {
   `;
 }
 
-// --- Game Pages (no Firebase needed) ---
-async function renderGamePage(container, gameId) {
-  const gameKey = gameId.toLowerCase();
-  if (gameKey === 'flappybird') {
-    const { renderFlappyBird } = await import('./games/flappybird.js');
-    renderFlappyBird(container);
-  } else {
-    container.innerHTML = `
-      <div style="max-width:700px;margin:0 auto;text-align:center;">
-        <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;color:#f1f1f1;">${gameId.replace(/-/g, ' ')}</h1>
-        <p style="color:#aaa;margin-bottom:32px;">This game hasn't been implemented yet. Check back later!</p>
-        <a href="#/" class="btn btn-primary">Back to Home</a>
-      </div>
-    `;
-  }
-}
-
 // --- Error Page ---
 // Import escapeHtml lazily to avoid circular deps at module top-level
 async function getEscapeHtml() {
@@ -165,14 +145,8 @@ async function bootstrap() {
   const route = parseRoute();
   if (route.page === 'tutorial') {
     renderTutorial(mainContent);
+    // Still try to load Firebase in background for header auth state
     loadFirebaseModules().catch(e => console.warn('Firebase unavailable, tutorial still works:', e.message));
-    return;
-  }
-
-  // Game pages don't need Firebase either
-  if (route.page === 'game') {
-    renderGamePage(mainContent, route.id);
-    loadFirebaseModules().catch(e => console.warn('Firebase unavailable, game still works:', e.message));
     return;
   }
 
@@ -230,9 +204,6 @@ async function bootstrap() {
           break;
         case 'upload':
           renderUpload(mainContent);
-          break;
-        case 'game':
-          await renderGamePage(mainContent, r.id);
           break;
         case 'search':
           await renderHome(mainContent, r.term);
