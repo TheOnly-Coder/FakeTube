@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.google.com/recaptcha/ https://www.recaptcha.net/recaptcha/ https://ga.jspm.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src * data: blob:; connect-src 'self' https://firestore.googleapis.com https://firebaseappcheck.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://apis.google.com https://www.google.com https://www.recaptcha.net https://ga.jspm.io; frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://www.recaptcha.net/recaptcha/; worker-src 'self' blob:;">
   <script>/* Frame-bust: prevent clickjacking */ if(window.top!==window.self){window.top.location=window.self.location}</script>
+  <script>/* One-time self-repair: clear stale Firebase App Check token from previous broken deploys.
+     Runs BEFORE any modules load so Firebase starts with a clean state. */
+  (function(){try{var V='ft_v17';if(localStorage.getItem(V)!=='1'){localStorage.setItem(V,'1');if(window.indexedDB&&indexedDB.databases){indexedDB.databases().then(function(dbs){dbs.forEach(function(db){if(db.name.indexOf('firebase')!==-1)indexedDB.deleteDatabase(db.name)})})}}}catch(e){}})();</script>
   <title>FakeTube</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect rx=%2720%27 width=%27100%27 height=%27100%27 fill=%27%23ff0000%27/><polygon points=%2740,25 40,75 80,50%27 fill=%27white%27/></svg>">
   <style>
