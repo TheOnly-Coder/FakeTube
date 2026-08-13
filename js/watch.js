@@ -39,7 +39,7 @@ export async function renderWatch(container, videoId) {
   // Check if current user is notifying
   let isNotified = false;
   const user = getCurrentUser();
-  if (user && user.uid !== video.uploaderId) {
+  if (user && user.channelId !== video.uploaderId) {
     try { isNotified = await isNotifying(video.uploaderId); } catch {}
   }
 
@@ -47,7 +47,7 @@ export async function renderWatch(container, videoId) {
   const allVideos = await getVideos(30);
   const sidebarVideos = allVideos.filter(v => v.id !== videoId).slice(0, 10);
 
-  const isOwner = user && user.uid === video.uploaderId;
+  const isOwner = user && user.channelId === video.uploaderId;
   const avatarContent = video.uploaderPhoto 
     ? `<img src="${escapeHtml(video.uploaderPhoto)}" alt="">` 
     : getInitials(video.uploaderName);

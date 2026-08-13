@@ -63,7 +63,7 @@ export function renderHeader() {
           ${UPLOAD_SVG}
           <span>Upload</span>
         </a>
-        <a href="#/channel/${user.uid}" class="user-avatar-btn" title="${escapeHtml(user.displayName)}">
+        <a href="#/channel/${user.channelId || user.uid}" class="user-avatar-btn" title="${escapeHtml(user.displayName)}">
           ${user.photoURL 
             ? `<img src="${escapeHtml(user.photoURL)}" alt="${escapeHtml(user.displayName)}">` 
             : getInitials(user.displayName)}
@@ -151,7 +151,7 @@ function toggleUserMenu() {
     `;
     document.getElementById('menu-my-channel').addEventListener('click', () => {
       menu.classList.add('hidden'); menuOpen = false;
-      window.location.hash = `#/channel/${user.uid}`;
+      window.location.hash = `#/channel/${user.channelId || user.uid}`;
     });
     document.getElementById('menu-upload').addEventListener('click', () => {
       menu.classList.add('hidden'); menuOpen = false;

@@ -113,7 +113,7 @@ export async function renderPost(container, postId) {
     ? `<img src="${escapeHtml(post.channelPhoto)}" alt="">`
     : getInitials(post.channelName);
 
-  const isAuthor = user && user.uid === post.channelId;
+  const isAuthor = user && user.channelId === post.channelId;
 
   container.innerHTML = `
     <div class="post-page" style="max-width:700px;margin:0 auto;">
@@ -194,7 +194,7 @@ export async function renderPost(container, postId) {
         const { deletePost } = await import('./db.js');
         await deletePost(postId);
         showToast('Post deleted');
-        window.location.hash = `#/channel/${user.uid}`;
+        window.location.hash = `#/channel/${user.channelId || user.uid}`;
       } catch (err) {
         console.error('Delete post error:', err);
         showToast('Could not delete post.');

@@ -7,6 +7,36 @@ import {
 import { getCurrentUser } from './auth.js';
 import { escapeHtml } from './utils.js';
 
+// ---- Auth UID → Channel ID mapping ----
+// When a channel's Firestore doc ID is changed (migration), the Firebase Auth
+// UID stays the same. This map lets the rest of the code resolve the correct
+// channel ID for ownership checks, uploads, links, etc.
+// Persisted to localStorage so it survives page reloads.
+const AUTH_TO_CHANNEL_MAP = {};
+const CHANNEL_MAP_KEY = 'ft_channel_map';
+
+(function loadMappingsFromStorage() {
+  try {
+    const stored = localStorage.getItem(CHANNEL_MAP_KEY);
+    if (stored) Object.assign(AUTH_TO_CHANNEL_MAP, JSON.parse(stored));
+  } catch {}
+})();
+
+function saveMappingsToStorage() {
+  try { localStorage.setItem(CHANNEL_MAP_KEY, JSON.stringify(AUTH_TO_CHANNEL_MAP)); } catch {}
+}
+
+/** Resolve a Firebase Auth UID to its canonical channel ID (Firestore doc ID). */
+export function resolveChannelId(authUid) {
+  return AUTH_TO_CHANNEL_MAP[authUid] || authUid;
+}
+
+/** Register a mapping after a channel ID migration. */
+function registerChannelMapping(authUid, channelId) {
+  AUTH_TO_CHANNEL_MAP[authUid] = channelId;
+  saveMappingsToStorage();
+}
+
 // ---- Retry helper for Firestore reads ----
 // App Check tokens may not be ready on first attempt (especially iOS Safari).
 // Retries permission-denied errors with a short delay to let the token arrive.
@@ -33,6 +63,14 @@ export async function getUser(uid) {
     const snap = await getDoc(doc(db, 'users', uid));
     if (!snap.exists()) return null;
     const data = snap.data();
+    // Follow migration redirect pointer
+    if (data.migratedTo) {
+      const redirect = await getDoc(doc(db, 'users', data.migratedTo));
+      if (redirect.exists()) {
+        registerChannelMapping(uid, data.migratedTo);
+        return { id: data.migratedTo, ...redirect.data() };
+      }
+    }
     return { id: uid, ...data };
   });
 }
@@ -108,7 +146,7 @@ export async function deleteVideo(videoId) {
   const video = await getVideo(videoId);
   if (!video) return;
   const user = getCurrentUser();
-  if (video.uploaderId !== user?.uid) return;
+  if (video.uploaderId !== resolveChannelId(user?.uid)) return;
   await deleteDoc(doc(db, 'videos', videoId));
   // Delete associated comments
   const snap = await getDocs(query(collection(db, 'comments'), where('videoId', '==', videoId)));
@@ -158,7 +196,10 @@ export function onCommentsChange(videoId, callback) {
 // ---- Notify (Subscriptions) ----
 export async function toggleNotify(channelId) {
   const user = getCurrentUser();
-  if (!user || channelId === user.uid) return false;
+  if (!user) return false;
+  // Prevent self-subscription (compare against resolved channel ID)
+  if (channelId === resolveChannelId(user.uid)) return false;
+  // Subscriber doc ID always uses auth UID for the subscriber part
   const subDocId = `${channelId}_${user.uid}`;
   const subRef = doc(db, 'subscribers', subDocId);
   const snap = await getDoc(subRef);
@@ -220,7 +261,7 @@ export async function searchChannels(searchTerm) {
     const term = searchTerm.toLowerCase();
     return snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.displayName && u.displayName.toLowerCase().includes(term));
+      .filter(u => !u.migratedTo && u.displayName && u.displayName.toLowerCase().includes(term));
   });
 }
 
@@ -302,7 +343,7 @@ export async function deletePost(postId) {
   const post = await getPost(postId);
   if (!post) return;
   const user = getCurrentUser();
-  if (post.channelId !== user?.uid) return;
+  if (post.channelId !== resolveChannelId(user?.uid)) return;
   await deleteDoc(doc(db, 'posts', postId));
   // Delete post comments
   const snap = await getDocs(query(collection(db, 'postComments'), where('postId', '==', postId)));
@@ -338,6 +379,79 @@ export async function togglePostStar(postId) {
       console.warn('Star count increment failed:', e);
     }
     return true;
+  }
+}
+
+/**
+ * Migrate a channel's Firestore document ID.
+ * Copies the user doc, updates all videos/posts/subscribers, replaces the
+ * old doc with a redirect pointer, and registers the mapping in memory.
+ *
+ * Collections updated:
+ *   users/{oldId} → users/{newId}
+ *   videos: uploaderId field
+ *   posts: channelId field
+ *   subscribers: doc IDs and channelId field (where this channel is the channel)
+ *
+ * Returns { success, stats, error? }
+ */
+export async function migrateChannelId(oldId, newId) {
+  const stats = { videos: 0, posts: 0, subscribersIn: 0 };
+
+  try {
+    // 1. Copy user doc to new ID
+    const oldSnap = await getDoc(doc(db, 'users', oldId));
+    if (!oldSnap.exists()) {
+      return { success: false, error: 'Old user document not found.' };
+    }
+    const oldData = oldSnap.data();
+    // Remove serverTimestamp fields that can't be re-written as-is
+    const { createdAt, ...rest } = oldData;
+    await setDoc(doc(db, 'users', newId), { ...rest, createdAt });
+
+    // 2. Update all videos: uploaderId → newId
+    const vidSnap = await getDocs(query(collection(db, 'videos'), where('uploaderId', '==', oldId)));
+    for (const vDoc of vidSnap.docs) {
+      await updateDoc(doc(db, 'videos', vDoc.id), { uploaderId: newId });
+      stats.videos++;
+    }
+
+    // 3. Update all posts: channelId → newId
+    const postSnap = await getDocs(query(collection(db, 'posts'), where('channelId', '==', oldId)));
+    for (const pDoc of postSnap.docs) {
+      await updateDoc(doc(db, 'posts', pDoc.id), { channelId: newId });
+      stats.posts++;
+    }
+
+    // 4. Migrate subscriber docs where this channel IS the channel
+    const subInSnap = await getDocs(query(collection(db, 'subscribers'), where('channelId', '==', oldId)));
+    for (const sDoc of subInSnap.docs) {
+      const data = sDoc.data();
+      const subscriberId = data.subscriberId;
+      // Create new doc with new ID pattern: {newId}_{subscriberId}
+      await setDoc(doc(db, 'subscribers', `${newId}_${subscriberId}`), {
+        ...data,
+        channelId: newId
+      });
+      // Delete old doc
+      await deleteDoc(doc(db, 'subscribers', sDoc.id));
+      stats.subscribersIn++;
+    }
+
+    // 5. Subscriber docs where this user IS the subscriber (FakeTube subscribes
+    //    to other channels) do NOT need migration — they use auth UID as
+    //    subscriberId and isNotifying/getSubscribedPosts look up by auth UID.
+
+    // 6. Replace old user doc with a lightweight redirect pointer
+    await setDoc(doc(db, 'users', oldId), { migratedTo: newId });
+
+    // 7. Register the mapping in memory for this session
+    registerChannelMapping(oldId, newId);
+
+    return { success: true, stats };
+  } catch (err) {
+    console.error('Migration error:', err);
+    return { success: false, error: err.message || 'Migration failed.' };
   }
 }
 

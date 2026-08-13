@@ -1,4 +1,4 @@
-import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost } from './db.js';
+import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost, migrateChannelId } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
 import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast, sanitizeCssUrl, rateLimit } from './utils.js';
@@ -14,7 +14,7 @@ export async function renderChannel(container, userId) {
   }
 
   const me = getCurrentUser();
-  const isMe = me && me.uid === userId;
+  const isMe = me && (me.channelId === userId);
   let isNotified = false;
   if (!isMe && me) {
     try { isNotified = await isNotifying(userId); } catch {}
@@ -68,7 +68,7 @@ export async function renderChannel(container, userId) {
         <div>
           ${isMe 
             ? `<button class="btn btn-outline" id="edit-profile-btn">Edit profile</button>
-               <button class="btn" id="sign-out-btn" style="margin-left:8px;">Sign out</button>`
+               <button class="btn" id="sign-out-btn" style="margin-left:8px;">Sign out</button>${userId === '3EameaHde0Wx4MZTGO4kCn6YP8f2' ? `<button class="btn" id="migrate-channel-btn" style="margin-left:8px;background:#ff0000;color:white;">Change ID to FakeTube</button>` : ''}`
             : `<button class="btn-notify ${isNotified ? 'active' : ''}" id="channel-notify-btn" data-channel-id="${userId}">
                 ${isNotified ? BELL_SVG : BELL_OFF_SVG}
                 <span>${isNotified ? 'Notified' : 'Notify me'}</span>
@@ -187,6 +187,43 @@ export async function renderChannel(container, userId) {
     editBtn.addEventListener('click', () => {
       if (!isMe) return;
       openEditProfileModal(channelUser, container, userId);
+    });
+  }
+
+  // Migrate channel ID button (only for FakeTube owner, one-time use)
+  const migrateBtn = document.getElementById('migrate-channel-btn');
+  if (migrateBtn) {
+    migrateBtn.addEventListener('click', async () => {
+      if (!confirm(
+        'This will change your channel ID from 3EameaHde0Wx4MZTGO4kCn6YP8f2 to FakeTube.\n\n' +
+        'This updates:\n' +
+        '  - Your user document\n' +
+        '  - All videos (uploaderId)\n' +
+        '  - All posts (channelId)\n' +
+        '  - All subscriber records\n\n' +
+        'Your login email and password stay the same.\n' +
+        'Old links will still work (redirect).\n\n' +
+        'This cannot be undone. Continue?'
+      )) return;
+
+      migrateBtn.disabled = true;
+      migrateBtn.textContent = 'Migrating...';
+
+      const result = await migrateChannelId('3EameaHde0Wx4MZTGO4kCn6YP8f2', 'FakeTube');
+
+      if (result.success) {
+        const s = result.stats;
+        showToast(`Migrated! ${s.videos} videos, ${s.posts} posts, ${s.subscribersIn} subs.`);
+        // Update the auth user's channelId in memory
+        const me = getCurrentUser();
+        if (me) me.channelId = 'FakeTube';
+        // Navigate to the new URL (hashchange triggers navigate in app.js)
+        window.location.hash = '#/channel/FakeTube';
+      } else {
+        showToast('Migration failed: ' + (result.error || 'Unknown error'));
+        migrateBtn.disabled = false;
+        migrateBtn.textContent = 'Change ID to FakeTube';
+      }
     });
   }
 }
@@ -407,7 +444,7 @@ function renderPostsPane(postsPane, posts, isMe, me, channelId) {
       try {
         const postId = await createPost({
           content: text,
-          channelId: me.uid,
+          channelId: me.channelId || me.uid,
           channelName: me.displayName,
           channelPhoto: me.photoURL || ''
         });

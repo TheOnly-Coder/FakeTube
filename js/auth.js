@@ -7,6 +7,7 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { resolveChannelId } from './db.js';
 import { showToast, rateLimit } from './utils.js';
 
 let currentUser = null;
@@ -100,13 +101,17 @@ export async function ensureUserRecord(uid) {
       createdAt: serverTimestamp()
     });
   }
+  // If the doc has a migratedTo pointer, getUser() will follow it and
+  // register the mapping in localStorage for future page loads.
 }
 
 // Listen for auth state changes
 onAuthStateChanged(auth, (user) => {
   if (user) {
+    const channelId = resolveChannelId(user.uid);
     currentUser = {
       uid: user.uid,
+      channelId,
       email: user.email,
       displayName: user.displayName || 'Anonymous',
       photoURL: user.photoURL || ''

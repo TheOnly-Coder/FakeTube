@@ -173,7 +173,7 @@ export function renderUpload(container) {
         title,
         description: document.getElementById('video-desc').value.trim(),
         tags,
-        uploaderId: user.uid,
+        uploaderId: user.channelId || user.uid,
         uploaderName: user.displayName,
         uploaderPhoto: user.photoURL || '',
         videoUrl: url,
