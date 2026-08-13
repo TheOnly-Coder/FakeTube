@@ -7,7 +7,7 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { resolveChannelId, getUser } from './db.js';
+import { resolveChannelId } from './db.js';
 import { showToast, rateLimit } from './utils.js';
 
 let currentUser = null;
@@ -114,19 +114,15 @@ export async function ensureUserRecord(uid) {
     // Sync currentUser with Firestore user doc (photoURL, displayName may
     // differ from auth profile if the user edited their profile in-app).
     const data = snap.data();
-    if (currentUser) {
-      if (data.photoURL !== undefined && data.photoURL !== '') currentUser.photoURL = data.photoURL;
+    if (data && !data.migratedTo && currentUser) {
+      if (data.photoURL !== undefined) currentUser.photoURL = data.photoURL;
       if (data.displayName) currentUser.displayName = data.displayName;
-      // Backfill authUid if this is an old doc that doesn't have it yet
-      if (!data.authUid) {
-        try { await updateDoc(doc(db, 'users', docId), { authUid: uid }); } catch {}
-      }
     }
   }
 }
 
 // Listen for auth state changes
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
   if (user) {
     const channelId = resolveChannelId(user.uid);
     currentUser = {
@@ -136,32 +132,10 @@ onAuthStateChanged(auth, async (user) => {
       displayName: user.displayName || 'Anonymous',
       photoURL: user.photoURL || ''
     };
-    // Notify immediately for fast initial render
-    authListeners.forEach(cb => cb(currentUser));
-
-    // Sync photoURL/displayName from Firestore user doc
-    // (may differ from Firebase Auth if user edited profile in-app)
-    try {
-      const fsUser = await getUser(channelId);
-      if (fsUser && !fsUser.migratedTo) {
-        let changed = false;
-        if (fsUser.photoURL !== undefined && fsUser.photoURL !== '' && fsUser.photoURL !== currentUser.photoURL) {
-          currentUser.photoURL = fsUser.photoURL;
-          changed = true;
-        }
-        if (fsUser.displayName && fsUser.displayName !== currentUser.displayName) {
-          currentUser.displayName = fsUser.displayName;
-          changed = true;
-        }
-        if (changed) authListeners.forEach(cb => cb(currentUser));
-      }
-    } catch (e) {
-      console.warn('Could not sync user profile from Firestore:', e);
-    }
   } else {
     currentUser = null;
-    authListeners.forEach(cb => cb(currentUser));
   }
+  authListeners.forEach(cb => cb(currentUser));
 });
 
 function authErrorMessage(code) {
