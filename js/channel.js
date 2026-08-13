@@ -7,22 +7,17 @@ import { postCardHTML, setupPostCardActions } from './posts.js';
 export async function renderChannel(container, userId) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
-  // Fetch user doc first — it may redirect to a different ID (migration)
-  const channelUser = await getUser(userId);
+  const [channelUser, videos, posts] = await Promise.all([getUser(userId), getVideosByUser(userId), getPostsByUser(userId)]);
   if (!channelUser) {
     container.innerHTML = '<div class="empty-state"><h3>Channel not found</h3><a href="#/" class="btn btn-primary">Go Home</a></div>';
     return;
   }
 
-  // Use the resolved channel ID for all data operations
-  const channelId = channelUser.id;
-  const [videos, posts] = await Promise.all([getVideosByUser(channelId), getPostsByUser(channelId)]);
-
   const me = getCurrentUser();
-  const isMe = me && (me.channelId === channelId);
+  const isMe = me && (me.channelId === userId);
   let isNotified = false;
   if (!isMe && me) {
-    try { isNotified = await isNotifying(channelId); } catch {}
+    try { isNotified = await isNotifying(userId); } catch {}
   }
   const subCount = channelUser.subscriberCount || 0;
 
@@ -167,10 +162,10 @@ export async function renderChannel(container, userId) {
         showToast('Slow down with the subscriptions!');
         return;
       }
-      const now = await toggleNotify(channelId);
+      const now = await toggleNotify(userId);
       notifyBtn.innerHTML = `${now ? BELL_SVG : BELL_OFF_SVG}<span>${now ? 'Notified' : 'Notify me'}</span>`;
       if (now) notifyBtn.classList.add('active'); else notifyBtn.classList.remove('active');
-      const nc = await getSubscriberCount(channelId);
+      const nc = await getSubscriberCount(userId);
       container.querySelector('.channel-handle').textContent = formatSubscribers(nc);
     });
   }
@@ -380,7 +375,7 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
     btn.disabled = true;
     btn.textContent = 'Saving...';
     try {
-      await updateUser(channelId, { displayName: name, bio, photoURL: photo, banner });
+      await updateUser(userId, { displayName: name, bio, photoURL: photo, banner });
       // Sync currentUser so header + future posts use the updated values
       const me = getCurrentUser();
       if (me) {
@@ -390,7 +385,7 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
       modal.classList.add('hidden');
       showToast('Profile updated!');
       renderHeader();
-      renderChannel(pageContainer, channelId);
+      renderChannel(pageContainer, userId);
     } catch (err) {
       errEl.textContent = err.message || 'Failed to save.';
       errEl.classList.remove('hidden');
