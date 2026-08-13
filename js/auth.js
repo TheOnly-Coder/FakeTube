@@ -59,7 +59,7 @@ export async function signup(email, password, displayName) {
     showToast('Account created!');
     return { success: true };
   } catch (err) {
-    const msg = authErrorMessage(err.code);
+    const msg = authErrorMessage(err.code, err.message);
     return { success: false, error: msg };
   }
 }
@@ -74,7 +74,7 @@ export async function login(email, password) {
     showToast('Signed in!');
     return { success: true };
   } catch (err) {
-    const msg = authErrorMessage(err.code);
+    const msg = authErrorMessage(err.code, err.message);
     return { success: false, error: msg };
   }
 }
@@ -138,7 +138,7 @@ onAuthStateChanged(auth, (user) => {
   authListeners.forEach(cb => cb(currentUser));
 });
 
-function authErrorMessage(code) {
+function authErrorMessage(code, rawMessage) {
   const messages = {
     'auth/email-already-in-use': 'This email is already registered.',
     'auth/invalid-email': 'Please enter a valid email.',
@@ -149,5 +149,10 @@ function authErrorMessage(code) {
     'auth/too-many-requests': 'Too many attempts. Please try again later.',
     'auth/network-request-failed': 'Network error. Check your connection.'
   };
-  return messages[code] || 'Something went wrong. Please try again.';
+  const base = messages[code] || 'Something went wrong. Please try again.';
+  // Include the real error code so we can diagnose issues
+  if (!messages[code] && (code || rawMessage)) {
+    return base + ' (' + (code || '').replace('auth/', '') + (rawMessage ? ': ' + rawMessage : '') + ')';
+  }
+  return base;
 }
