@@ -100,9 +100,15 @@ export async function ensureUserRecord(uid) {
       subscriberCount: 0,
       createdAt: serverTimestamp()
     });
+  } else {
+    // Sync currentUser with Firestore user doc (photoURL, displayName may
+    // differ from auth profile if the user edited their profile in-app).
+    const data = snap.data();
+    if (data && !data.migratedTo && currentUser) {
+      if (data.photoURL !== undefined) currentUser.photoURL = data.photoURL;
+      if (data.displayName) currentUser.displayName = data.displayName;
+    }
   }
-  // If the doc has a migratedTo pointer, getUser() will follow it and
-  // register the mapping in localStorage for future page loads.
 }
 
 // Listen for auth state changes

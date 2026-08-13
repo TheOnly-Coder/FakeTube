@@ -1,6 +1,6 @@
 import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost, migrateChannelId } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
-import { videoCardHTML, setupVideoCardClicks, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
+import { videoCardHTML, setupVideoCardClicks, renderHeader, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast, sanitizeCssUrl, rateLimit } from './utils.js';
 import { postCardHTML, setupPostCardActions } from './posts.js';
 
@@ -376,8 +376,15 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
     btn.textContent = 'Saving...';
     try {
       await updateUser(userId, { displayName: name, bio, photoURL: photo, banner });
+      // Sync currentUser so header + future posts use the updated values
+      const me = getCurrentUser();
+      if (me) {
+        me.displayName = name;
+        me.photoURL = photo;
+      }
       modal.classList.add('hidden');
       showToast('Profile updated!');
+      renderHeader();
       renderChannel(pageContainer, userId);
     } catch (err) {
       errEl.textContent = err.message || 'Failed to save.';
