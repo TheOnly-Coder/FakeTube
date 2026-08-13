@@ -6,7 +6,7 @@ import {
   updateProfile, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { resolveChannelId } from './db.js';
 import { showToast, rateLimit } from './utils.js';
 
@@ -53,13 +53,12 @@ export async function signup(email, password, displayName) {
       photoURL: '',
       bio: '',
       subscriberCount: 0,
-      createdAt: serverTimestamp(),
-      authUid: cred.user.uid
+      createdAt: serverTimestamp()
     });
     showToast('Account created!');
     return { success: true };
   } catch (err) {
-    const msg = authErrorMessage(err.code, err.message);
+    const msg = authErrorMessage(err.code);
     return { success: false, error: msg };
   }
 }
@@ -74,7 +73,7 @@ export async function login(email, password) {
     showToast('Signed in!');
     return { success: true };
   } catch (err) {
-    const msg = authErrorMessage(err.code, err.message);
+    const msg = authErrorMessage(err.code);
     return { success: false, error: msg };
   }
 }
@@ -90,25 +89,16 @@ export async function logout() {
 }
 
 export async function ensureUserRecord(uid) {
-  let docId = resolveChannelId(uid);
-  let snap = await getDoc(doc(db, 'users', docId));
-
-  // Follow migration redirect if the resolved ID is still a stub
-  if (snap.exists() && snap.data().migratedTo) {
-    docId = snap.data().migratedTo;
-    snap = await getDoc(doc(db, 'users', docId));
-  }
-
+  const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) {
     const user = auth.currentUser;
-    await setDoc(doc(db, 'users', docId), {
+    await setDoc(doc(db, 'users', uid), {
       displayName: user?.displayName || 'Anonymous',
       email: user?.email || '',
       photoURL: user?.photoURL || '',
       bio: '',
       subscriberCount: 0,
-      createdAt: serverTimestamp(),
-      authUid: uid
+      createdAt: serverTimestamp()
     });
   } else {
     // Sync currentUser with Firestore user doc (photoURL, displayName may
@@ -138,7 +128,7 @@ onAuthStateChanged(auth, (user) => {
   authListeners.forEach(cb => cb(currentUser));
 });
 
-function authErrorMessage(code, rawMessage) {
+function authErrorMessage(code) {
   const messages = {
     'auth/email-already-in-use': 'This email is already registered.',
     'auth/invalid-email': 'Please enter a valid email.',
@@ -149,10 +139,5 @@ function authErrorMessage(code, rawMessage) {
     'auth/too-many-requests': 'Too many attempts. Please try again later.',
     'auth/network-request-failed': 'Network error. Check your connection.'
   };
-  const base = messages[code] || 'Something went wrong. Please try again.';
-  // Include the real error code so we can diagnose issues
-  if (!messages[code] && (code || rawMessage)) {
-    return base + ' (' + (code || '').replace('auth/', '') + (rawMessage ? ': ' + rawMessage : '') + ')';
-  }
-  return base;
+  return messages[code] || 'Something went wrong. Please try again.';
 }

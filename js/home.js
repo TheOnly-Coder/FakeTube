@@ -17,23 +17,39 @@ export async function renderHome(container, searchTerm) {
     }
   } catch (err) {
     console.error('Failed to load videos:', err);
-    const errCode = err.code || '';
-    const errMsg = (err.message || 'Unknown error').replace(/</g, '&lt;');
-    const isPerm = errCode === 'permission-denied' || (err.message && err.message.includes('permission-denied'));
-    const hint = isPerm
-      ? 'This usually means you\'re not signed in, or your session expired. Try signing in again.'
-      : 'Check the setup guide for instructions.';
     container.innerHTML = `
       <div class="empty-state">
         <svg viewBox="0 0 24 24"><path d="M12,2L1,21h22L12,2z M12,6l7.53,13H4.47L12,6z"/><rect x="11" y="10" width="2" height="4"/><rect x="11" y="16" width="2" height="2"/></svg>
         <h3>Could not load videos</h3>
-        <p style="max-width:450px;margin:0 auto 8px;">${hint}</p>
-        <p style="max-width:500px;margin:0 auto 16px;color:var(--text-dimmed);font-size:13px;word-break:break-all;">${errMsg}</p>
-        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="location.reload()" class="btn btn-primary">Reload</button>
-          <button onclick="if(caches){caches.keys().then(k=>Promise.all(k.map(n=>caches.delete(n)))).then(()=>location.reload())}" class="btn" style="background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border-color);">Hard Refresh (clear cache)</button>
+        <p style="max-width:450px;margin:0 auto 16px;">This usually means Firestore hasn't been set up yet. Check the setup guide for instructions.</p>
+        <a href="#/how-to-upload" class="btn btn-primary">How to get started</a>
+      </div>
+    `;
+    return;
+  }
+
+  if (videos.length === 0 && !searchTerm) {
+    // No videos at all — check if we should still show posts
+    const subPosts = searchTerm ? [] : await getSubscribedPostsSilent();
+    if (subPosts.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg>
+          <h3>No videos yet</h3>
+          <p>Be the first to share a video!</p>
+          <a href="#/how-to-upload" class="btn btn-primary">Learn how to upload</a>
         </div>
-        <p style="margin-top:16px;"><a href="#/how-to-upload" style="color:var(--accent-blue);">How to get started</a></p>
+      `;
+      return;
+    }
+  }
+
+  if (searchTerm && videos.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg>
+        <h3>No results found</h3>
+        <p>Try different keywords</p>
       </div>
     `;
     return;
@@ -51,40 +67,33 @@ export async function renderHome(container, searchTerm) {
     }
   }
 
-  // Video grid (always rendered — shows inline empty message if no videos)
-  let gridHTML = '';
-  if (videos.length > 0) {
-    gridHTML = videos.map(v => {
-      const av = v.uploaderPhoto 
-        ? `<img src="${escapeHtml(v.uploaderPhoto)}" alt="">` 
-        : getInitials(v.uploaderName);
-      return `
-        <div class="video-card" data-video-id="${v.id}">
-          <div class="video-card-thumbnail">
-            ${v.thumbnailUrl 
-              ? `<img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" loading="lazy">` 
-              : ''}
-          </div>
-          <div class="video-card-info">
-            <div class="video-card-avatar" data-channel-id="${v.uploaderId}">${av}</div>
-            <div class="video-card-meta">
-              <div class="video-card-title">${escapeHtml(v.title)}</div>
-              <div class="video-card-channel" data-channel-id="${v.uploaderId}">${escapeHtml(v.uploaderName)}</div>
-              <div class="video-card-stats">${formatViews(v.views)} &middot; ${timeAgo(v.createdAt)}</div>
-            </div>
+  // Video grid
+  const gridHTML = videos.map(v => {
+    const av = v.uploaderPhoto 
+      ? `<img src="${escapeHtml(v.uploaderPhoto)}" alt="">` 
+      : getInitials(v.uploaderName);
+    return `
+      <div class="video-card" data-video-id="${v.id}">
+        <div class="video-card-thumbnail">
+          ${v.thumbnailUrl 
+            ? `<img src="${escapeHtml(v.thumbnailUrl)}" alt="${escapeHtml(v.title)}" loading="lazy">` 
+            : ''}
+        </div>
+        <div class="video-card-info">
+          <div class="video-card-avatar" data-channel-id="${v.uploaderId}">${av}</div>
+          <div class="video-card-meta">
+            <div class="video-card-title">${escapeHtml(v.title)}</div>
+            <div class="video-card-channel" data-channel-id="${v.uploaderId}">${escapeHtml(v.uploaderName)}</div>
+            <div class="video-card-stats">${formatViews(v.views)} &middot; ${timeAgo(v.createdAt)}</div>
           </div>
         </div>
-      `;
-    }).join('');
-  } else if (!searchTerm) {
-    gridHTML = '<div class="empty-state" style="grid-column:1/-1;"><svg viewBox="0 0 24 24"><path d="M18,4l2,4h-3l-2-4h-2l2,4h-3l-2-4H8l2,4H7L5,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V4H18z"/></svg><h3>No videos yet</h3><p>Be the first to share a video!</p></div>';
-  } else {
-    gridHTML = '<div class="empty-state" style="grid-column:1/-1;"><h3>No results found</h3><p>Try different keywords</p></div>';
-  }
+      </div>
+    `;
+  }).join('');
 
   html += `<div class="video-grid">${gridHTML}</div>`;
 
-  // Games section (always shown on main feed, not search)
+  // Games section (only on main feed, not search)
   if (!searchTerm) {
     html += `
       <div class="games-section">
