@@ -17,12 +17,23 @@ export async function renderHome(container, searchTerm) {
     }
   } catch (err) {
     console.error('Failed to load videos:', err);
+    const errCode = err.code || '';
+    const errMsg = (err.message || 'Unknown error').replace(/</g, '&lt;');
+    const isPerm = errCode === 'permission-denied' || (err.message && err.message.includes('permission-denied'));
+    const hint = isPerm
+      ? 'This usually means you\'re not signed in, or your session expired. Try signing in again.'
+      : 'Check the setup guide for instructions.';
     container.innerHTML = `
       <div class="empty-state">
         <svg viewBox="0 0 24 24"><path d="M12,2L1,21h22L12,2z M12,6l7.53,13H4.47L12,6z"/><rect x="11" y="10" width="2" height="4"/><rect x="11" y="16" width="2" height="2"/></svg>
         <h3>Could not load videos</h3>
-        <p style="max-width:450px;margin:0 auto 16px;">This usually means Firestore hasn't been set up yet. Check the setup guide for instructions.</p>
-        <a href="#/how-to-upload" class="btn btn-primary">How to get started</a>
+        <p style="max-width:450px;margin:0 auto 8px;">${hint}</p>
+        <p style="max-width:500px;margin:0 auto 16px;color:var(--text-dimmed);font-size:13px;word-break:break-all;">${errMsg}</p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="location.reload()" class="btn btn-primary">Reload</button>
+          <button onclick="if(caches){caches.keys().then(k=>Promise.all(k.map(n=>caches.delete(n)))).then(()=>location.reload())}" class="btn" style="background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border-color);">Hard Refresh (clear cache)</button>
+        </div>
+        <p style="margin-top:16px;"><a href="#/how-to-upload" style="color:var(--accent-blue);">How to get started</a></p>
       </div>
     `;
     return;
