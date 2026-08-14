@@ -93,6 +93,7 @@ export async function createVideo(videoData) {
     description: String(videoData.description || '').substring(0, 5000),
     tags: Array.isArray(videoData.tags) ? videoData.tags.map(t => String(t || '').trim().substring(0, 50)).filter(Boolean).slice(0, 20) : [],
     uploaderId: String(videoData.uploaderId || '').substring(0, 100),
+    uploaderUid: String(videoData.uploaderUid || '').substring(0, 100),
     uploaderName: String(videoData.uploaderName || '').substring(0, 50),
     uploaderPhoto: String(videoData.uploaderPhoto || '').substring(0, 500),
     videoUrl: String(videoData.videoUrl || '').substring(0, 2000),
@@ -146,7 +147,13 @@ export async function deleteVideo(videoId) {
   const video = await getVideo(videoId);
   if (!video) return;
   const user = getCurrentUser();
-  if (video.uploaderId !== resolveChannelId(user?.uid)) return;
+  if (!user) return;
+  // Check ownership via uploaderUid (auth UID) first, then
+  // fall back to uploaderId (channel ID) for backward compat
+  // with videos uploaded before the uploaderUid field existed.
+  const isOwner = video.uploaderUid === user.uid
+    || video.uploaderId === resolveChannelId(user.uid);
+  if (!isOwner) return;
   await deleteDoc(doc(db, 'videos', videoId));
   // Delete associated comments
   const snap = await getDocs(query(collection(db, 'comments'), where('videoId', '==', videoId)));

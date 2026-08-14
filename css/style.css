@@ -1006,6 +1006,26 @@ img {
   color: var(--text-secondary);
   margin-bottom: 2px;
 }
+.channel-delete-video-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-dimmed);
+  margin-top: 4px;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.channel-delete-video-btn:hover {
+  background: var(--accent-red);
+  color: white;
+}
+.channel-delete-video-btn svg {
+  width: 16px;
+  height: 16px;
+}
 .sidebar-video-stats {
   font-size: 12px;
   color: var(--text-secondary);

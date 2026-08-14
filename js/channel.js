@@ -1,4 +1,4 @@
-import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost, migrateChannelId } from './db.js';
+import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost, migrateChannelId, deleteVideo } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
 import { videoCardHTML, setupVideoCardClicks, renderHeader, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast, sanitizeCssUrl, rateLimit } from './utils.js';
@@ -130,6 +130,7 @@ export async function renderChannel(container, userId) {
   if (videos.length === 0) {
     grid.innerHTML = '<div class="empty-state"><p>This channel hasn\'t uploaded any videos yet.</p></div>';
   } else {
+    const TRASH_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
     grid.innerHTML = videos.map(v => {
       const av = v.uploaderPhoto 
         ? `<img src="${escapeHtml(v.uploaderPhoto)}" alt="">` 
@@ -144,6 +145,7 @@ export async function renderChannel(container, userId) {
             <div class="video-card-meta">
               <div class="video-card-title">${escapeHtml(v.title)}</div>
               <div class="video-card-stats">${formatViews(v.views)} &middot; ${timeAgo(v.createdAt)}</div>
+              ${isMe ? `<button class="channel-delete-video-btn" data-video-id="${v.id}" title="Delete video">${TRASH_SVG}</button>` : ''}
             </div>
           </div>
         </div>
@@ -151,6 +153,25 @@ export async function renderChannel(container, userId) {
     }).join('');
   }
   setupVideoCardClicks(grid);
+
+  // Delete video buttons (only on own channel)
+  grid.querySelectorAll('.channel-delete-video-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const vid = btn.dataset.videoId;
+      if (!confirm('Delete this video and all its comments?')) return;
+      try {
+        await deleteVideo(vid);
+        showToast('Video deleted');
+        // Re-render the channel page to update the video list
+        renderChannel(container, userId);
+      } catch (err) {
+        console.error('Delete video error:', err);
+        showToast('Could not delete video. Check Firestore rules.');
+      }
+    });
+  });
 
   // Notify button
   const notifyBtn = document.getElementById('channel-notify-btn');
@@ -451,8 +472,10 @@ function renderPostsPane(postsPane, posts, isMe, me, channelId) {
       try {
         const postId = await createPost({
           content: text,
-          // Firestore rule requires channelId == auth.uid exactly.
-          channelId: me.uid,
+          // channelId = resolved channel ID (for grouping on channel pages)
+          // channelUid = auth UID (for Firestore security rule)
+          channelId: me.channelId || me.uid,
+          channelUid: me.uid,
           channelName: me.displayName,
           channelPhoto: me.photoURL || ''
         });

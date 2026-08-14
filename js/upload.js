@@ -173,9 +173,10 @@ export function renderUpload(container) {
         title,
         description: document.getElementById('video-desc').value.trim(),
         tags,
-        // Firestore rule requires uploaderId == auth.uid exactly.
-        // Use uid, not channelId (which may differ after migration).
-        uploaderId: user.uid,
+        // uploaderId = channel ID (for grouping on channel pages)
+        // uploaderUid = auth UID (for Firestore security rule)
+        uploaderId: user.channelId || user.uid,
+        uploaderUid: user.uid,
         uploaderName: user.displayName,
         uploaderPhoto: user.photoURL || '',
         videoUrl: url,
