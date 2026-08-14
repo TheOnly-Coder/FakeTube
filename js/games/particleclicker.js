@@ -13,7 +13,7 @@ export function renderParticleClicker(container) {
       </div>
       <iframe
         src="games/particleclicker/index.html"
-        style="flex:1;border:none;width:100%;"
+        style="flex:1;border:none;width:100%;min-height:0;"
         allow="fullscreen"
       ></iframe>
     </div>
