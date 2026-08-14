@@ -56,7 +56,17 @@ export async function renderWatch(container, videoId) {
     <div class="watch-page">
       <div class="watch-primary">
         <div class="video-player-container">
-          <video id="video-player" controls preload="metadata" src="${escapeHtml(video.videoUrl)}"></video>
+          <video id="video-player" controls preload="metadata">
+            <source src="${escapeHtml(video.videoUrl)}" type="video/mp4">
+          </video>
+          <div id="video-error-fallback" class="hidden">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:32px;">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="#aaa"><path d="M12,2L1,21h22L12,2z M12,6l7.53,13H4.47L12,6z"/><rect x="11" y="10" width="2" height="4"/><rect x="11" y="16" width="2" height="2"/></svg>
+              <p style="color:#f1f1f1;font-size:16px;font-weight:600;">Video can't play in browser</p>
+              <p style="color:#aaa;font-size:14px;text-align:center;max-width:500px;">This video host (e.g. Google Drive) doesn't allow direct embedding. You can watch it at the source link below.</p>
+              <a href="${escapeHtml(video.videoUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="margin-top:8px;">Open video externally</a>
+            </div>
+          </div>
         </div>
         <div class="video-details">
           <h1 class="video-title">${escapeHtml(video.title)}</h1>
@@ -110,6 +120,30 @@ export async function renderWatch(container, videoId) {
   // Render sidebar
   document.getElementById('sidebar-videos').innerHTML = sidebarVideos.map(v => sidebarVideoCardHTML(v)).join('');
   setupVideoCardClicks(document.getElementById('sidebar-videos'));
+
+  // Video player error handling — show fallback UI when the browser
+  // can't play the video (wrong MIME type, CORS, or non-video response
+  // from hosts like Google Drive).
+  const videoEl = document.getElementById('video-player');
+  const fallback = document.getElementById('video-error-fallback');
+  if (videoEl) {
+    const handleVideoError = () => {
+      // Only show fallback if the video genuinely can't play
+      const err = videoEl.error;
+      if (err) {
+        console.warn('Video playback error:', err.code, err.message);
+        videoEl.style.display = 'none';
+        fallback.classList.remove('hidden');
+      }
+    };
+    videoEl.addEventListener('error', handleVideoError);
+    // Also check after a delay — some browsers fire error asynchronously
+    setTimeout(() => {
+      if (videoEl.readyState === 0 && videoEl.networkState === 3) {
+        handleVideoError();
+      }
+    }, 5000);
+  }
 
   // Channel link clicks
   container.querySelectorAll('[data-channel-id]').forEach(el => {
