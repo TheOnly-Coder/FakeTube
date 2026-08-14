@@ -2497,3 +2497,43 @@ img {
     margin: -12px;
   }
 }
+
+/* Games Hub Tiles */
+.game-tile-card {
+  background: #272727;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+.game-tile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.game-tile-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: #181818;
+}
+.game-tile-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.game-tile-info {
+  padding: 14px 16px;
+}
+.game-tile-info h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f1f1;
+}
+.game-tile-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #aaa;
+  line-height: 1.4;
+}

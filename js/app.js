@@ -20,6 +20,8 @@ function parseRoute() {
 
   if (hash === '#/upload') return { page: 'upload' };
 
+  if (hash === '#/Games') return { page: 'games-hub' };
+
   const gameMatch = hash.match(/^#\/Games\/(.+)$/);
   if (gameMatch) return { page: 'game', id: gameMatch[1] };
 
@@ -113,19 +115,62 @@ function renderTutorial(container) {
   `;
 }
 
+// --- Games Hub (no Firebase needed) ---
+const GAMES_LIST = [
+  {
+    id: 'flappybird',
+    title: 'Flappy Bird',
+    description: 'The classic side-scrolling game. Tap to flap through pipes!',
+    tileImage: 'games/flappybird/flappybird.jpeg',
+  },
+  {
+    id: 'particleclicker',
+    title: 'Particle Clicker',
+    description: 'An addictive incremental game about particle physics research.',
+    tileImage: 'games/particleclicker/tile.jpg',
+  },
+];
+
+function renderGamesHub(container) {
+  const cards = GAMES_LIST.map(g => `
+    <a href="#/Games/${g.id}" class="game-tile-card" style="text-decoration:none;">
+      <div class="game-tile-img">
+        <img src="${g.tileImage}" alt="${g.title}" loading="lazy">
+      </div>
+      <div class="game-tile-info">
+        <h3>${g.title}</h3>
+        <p>${g.description}</p>
+      </div>
+    </a>
+  `).join('');
+
+  container.innerHTML = `
+    <div style="max-width:900px;margin:0 auto;padding:24px 16px;">
+      <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;color:#f1f1f1;">Games</h1>
+      <p style="color:#aaa;margin-bottom:24px;">Take a break and play something fun.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
+        ${cards}
+      </div>
+    </div>
+  `;
+}
+
 // --- Game Pages (no Firebase needed) ---
 async function renderGamePage(container, gameId) {
   const gameKey = gameId.toLowerCase();
   if (gameKey === 'flappybird') {
     const { renderFlappyBird } = await import('./games/flappybird.js');
     renderFlappyBird(container);
+  } else if (gameKey === 'particleclicker') {
+    const { renderParticleClicker } = await import('./games/particleclicker.js');
+    renderParticleClicker(container);
   } else {
     const escapeHtml = await getEscapeHtml();
     container.innerHTML = `
       <div style="max-width:700px;margin:0 auto;text-align:center;">
         <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;color:#f1f1f1;">${escapeHtml(gameId.replace(/-/g, ' '))}</h1>
         <p style="color:#aaa;margin-bottom:32px;">This game hasn't been implemented yet. Check back later!</p>
-        <a href="#/" class="btn btn-primary">Back to Home</a>
+        <a href="#/Games" class="btn btn-primary">Back to Games</a>
       </div>
     `;
   }
@@ -171,7 +216,12 @@ async function bootstrap() {
     return;
   }
 
-  // Game pages don't need Firebase either
+  // Game hub and game pages don't need Firebase either
+  if (route.page === 'games-hub') {
+    renderGamesHub(mainContent);
+    loadFirebaseModules().catch(e => console.warn('Firebase unavailable, games hub still works:', e.message));
+    return;
+  }
   if (route.page === 'game') {
     renderGamePage(mainContent, route.id);
     loadFirebaseModules().catch(e => console.warn('Firebase unavailable, game still works:', e.message));
@@ -239,8 +289,8 @@ async function bootstrap() {
         case 'search-channels':
           await renderChannelSearch(mainContent, r.term);
           break;
-        case 'tutorial':
-          renderTutorial(mainContent);
+        case 'games-hub':
+          renderGamesHub(mainContent);
           break;
         case 'game':
           await renderGamePage(mainContent, r.id);
