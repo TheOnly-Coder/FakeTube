@@ -2375,7 +2375,7 @@ img {
 }
 .games-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 .game-tile {
@@ -2415,8 +2415,7 @@ img {
 
 /* ── Game Page ── */
 .game-page {
-  max-width: 500px;
-  margin: 0 auto;
+  width: 100%;
   text-align: center;
 }
 .game-header {
@@ -2433,15 +2432,14 @@ img {
 .game-canvas-wrapper {
   display: flex;
   justify-content: center;
+  align-items: center;
   background: #000;
-  border-radius: 12px;
-  padding: 16px;
+  width: 100%;
   overflow: hidden;
 }
 .game-canvas-wrapper canvas {
   max-width: 100%;
   height: auto;
-  border-radius: 4px;
 }
 .game-instructions {
   color: #aaa;
@@ -2451,7 +2449,6 @@ img {
 
 @media (max-width: 480px) {
   .game-canvas-wrapper {
-    padding: 8px;
-    border-radius: 8px;
+    /* no padding on mobile — canvas fills edge to edge */
   }
 }
