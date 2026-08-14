@@ -1,4 +1,4 @@
-import { getVideo, incrementViews, getComments, addComment, toggleNotify, isNotifying, getVideos, getSubscriberCount, onCommentsChange } from './db.js';
+import { getVideo, incrementViews, getComments, addComment, toggleNotify, isNotifying, getVideos, getSubscriberCount, onCommentsChange, getUserProfile, resolveChannelId } from './db.js';
 import { getCurrentUser, onAuthChange } from './auth.js';
 import { videoCardHTML, sidebarVideoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, SEND_SVG } from './components.js';
 import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials, recordVideoWatch, rateLimit, validateVideoUrl } from './utils.js';
@@ -57,7 +57,7 @@ export async function renderWatch(container, videoId) {
       <div class="watch-primary">
         <div class="video-player-container">
           <video id="video-player" controls preload="metadata">
-            <source src="${escapeHtml(video.videoUrl)}" type="video/mp4">
+            <source src="${escapeHtml(video.videoUrl)}">
           </video>
           <div id="video-error-fallback" class="hidden">
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:32px;">
@@ -124,25 +124,37 @@ export async function renderWatch(container, videoId) {
   // Video player error handling — show fallback UI when the browser
   // can't play the video (wrong MIME type, CORS, or non-video response
   // from hosts like Google Drive).
+  // Note: <source> is used WITHOUT a type attribute so the browser
+  // probes the actual content instead of rejecting based on MIME type
+  // mismatch (fixes GitHub Releases which serve as application/octet-stream).
   const videoEl = document.getElementById('video-player');
   const fallback = document.getElementById('video-error-fallback');
   if (videoEl) {
-    const handleVideoError = () => {
-      // Only show fallback if the video genuinely can't play
-      const err = videoEl.error;
-      if (err) {
-        console.warn('Video playback error:', err.code, err.message);
-        videoEl.style.display = 'none';
-        fallback.classList.remove('hidden');
-      }
+    let fallbackShown = false;
+    const showFallback = () => {
+      if (fallbackShown) return;
+      fallbackShown = true;
+      console.warn('Video playback error: showing fallback');
+      videoEl.style.display = 'none';
+      fallback.classList.remove('hidden');
     };
-    videoEl.addEventListener('error', handleVideoError);
-    // Also check after a delay — some browsers fire error asynchronously
+    // Listen for error on the <video> element itself
+    videoEl.addEventListener('error', () => {
+      if (videoEl.error) showFallback();
+    });
+    // Also listen on <source> elements — some browsers fire the error
+    // on the <source> rather than the <video> when MIME sniffing fails.
+    const sourceEl = videoEl.querySelector('source');
+    if (sourceEl) {
+      sourceEl.addEventListener('error', showFallback);
+    }
+    // Fallback timer: if after 6s the video hasn't loaded any data,
+    // assume it's unplayable and show the fallback.
     setTimeout(() => {
-      if (videoEl.readyState === 0 && videoEl.networkState === 3) {
-        handleVideoError();
+      if (!fallbackShown && videoEl.readyState === 0) {
+        showFallback();
       }
-    }, 5000);
+    }, 6000);
   }
 
   // Channel link clicks
@@ -201,6 +213,9 @@ function renderCommentInput() {
     area.innerHTML = `<p style="color:var(--text-secondary);font-size:14px;">Sign in to add a comment.</p>`;
     return;
   }
+  // Load the logged-in user's current PFP from the profile cache
+  // (or fetch it). This ensures the avatar next to "Add a comment"
+  // always matches the channel's current profile picture.
   const avatarContent = user.photoURL 
     ? `<img src="${escapeHtml(user.photoURL)}" alt="">` 
     : getInitials(user.displayName);
@@ -216,6 +231,17 @@ function renderCommentInput() {
       </div>
     </div>
   `;
+  // Async: fetch the latest profile photo and update the avatar if different
+  getUserProfile(user.uid).then(profile => {
+    if (!profile) return;
+    const latestPhoto = profile.photoURL || '';
+    if (latestPhoto && latestPhoto !== user.photoURL) {
+      const avatarEl = area.querySelector('.comment-input-avatar');
+      if (avatarEl) {
+        avatarEl.innerHTML = `<img src="${escapeHtml(latestPhoto)}" alt="">`;
+      }
+    }
+  });
   const input = document.getElementById('comment-input');
   const actions = document.getElementById('comment-actions');
   const submitBtn = document.getElementById('comment-submit');
@@ -246,27 +272,55 @@ function renderCommentInput() {
 }
 
 function loadComments(videoId) {
-  return onCommentsChange(videoId, (comments) => {
+  return onCommentsChange(videoId, async (comments) => {
     document.getElementById('comments-count').textContent = `${comments.length} Comment${comments.length !== 1 ? 's' : ''}`;
     const list = document.getElementById('comments-list');
     if (comments.length === 0) {
       list.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;">No comments yet.</p>';
       return;
     }
+
+    // Collect unique userIds and batch-fetch their profiles for PFPs.
+    // This loads the commenter's CURRENT profile picture from their
+    // user doc, not from stored comment data.
+    const uniqueUids = [...new Set(comments.map(c => c.userId).filter(Boolean))];
+    const profileMap = {};
+    await Promise.all(uniqueUids.map(async uid => {
+      try {
+        const profile = await getUserProfile(uid);
+        if (profile) profileMap[uid] = profile;
+      } catch {}
+    }));
+
     list.innerHTML = comments.map(c => {
-      const avatar = c.userPhoto 
-        ? `<img src="${escapeHtml(c.userPhoto)}" alt="">` 
-        : getInitials(c.userName);
+      // Use the live profile photo if available, fall back to stored
+      // userPhoto (for old comments), then initials.
+      const profile = profileMap[c.userId];
+      const livePhoto = profile?.photoURL || '';
+      const liveName = profile?.displayName || c.userName || 'Anonymous';
+      const avatar = livePhoto
+        ? `<img src="${escapeHtml(livePhoto)}" alt="">`
+        : getInitials(liveName);
+      // Resolve the channel ID for the comment author so the name
+      // links to the correct channel page (handles migrated channels).
+      const authorChannelId = resolveChannelId(c.userId);
       return `
         <div class="comment-item">
           <div class="comment-avatar">${avatar}</div>
           <div class="comment-body">
-            <span class="comment-author">${escapeHtml(c.userName)}</span>
+            <span class="comment-author" data-channel-id="${escapeHtml(authorChannelId)}" style="cursor:pointer;">${escapeHtml(liveName)}</span>
             <span class="comment-time">${timeAgo(c.createdAt)}</span>
             <div class="comment-text">${escapeHtml(c.text)}</div>
           </div>
         </div>
       `;
     }).join('');
+
+    // Make comment author names clickable to navigate to their channel
+    list.querySelectorAll('.comment-author[data-channel-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        window.location.hash = `#/channel/${el.dataset.channelId}`;
+      });
+    });
   });
 }

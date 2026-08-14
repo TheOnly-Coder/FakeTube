@@ -1,6 +1,6 @@
 import { getCurrentUser, ensureUserRecord } from './auth.js';
 import { openAuthModal } from './components.js';
-import { createVideo } from './db.js';
+import { createVideo, getUser } from './db.js';
 import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast, validateVideoUrl, rateLimit } from './utils.js';
 
 export function renderUpload(container) {
@@ -166,6 +166,16 @@ export function renderUpload(container) {
     try {
       await ensureUserRecord(user.uid);
 
+      // Fetch the channel's current profile from Firestore to get the
+      // latest photoURL (may differ from auth profile if edited in-app).
+      let channelPhoto = user.photoURL || '';
+      try {
+        const channelUser = await getUser(user.channelId || user.uid);
+        if (channelUser && channelUser.photoURL) {
+          channelPhoto = channelUser.photoURL;
+        }
+      } catch {}
+
       const tagsRaw = document.getElementById('video-tags').value.trim();
       const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
 
@@ -178,7 +188,7 @@ export function renderUpload(container) {
         uploaderId: user.channelId || user.uid,
         uploaderUid: user.uid,
         uploaderName: user.displayName,
-        uploaderPhoto: user.photoURL || '',
+        uploaderPhoto: channelPhoto,
         videoUrl: url,
         thumbnailUrl: thumbnailDataUrl,
         duration: videoDuration

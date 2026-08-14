@@ -1,4 +1,4 @@
-import { getPost, togglePostStar, isPostStarred, addPostComment, onPostCommentsChange } from './db.js';
+import { getPost, togglePostStar, isPostStarred, addPostComment, onPostCommentsChange, getUserProfile, resolveChannelId } from './db.js';
 import { getCurrentUser } from './auth.js';
 import { openAuthModal, STAR_SVG, STAR_OUTLINE_SVG, COMMENT_SVG, CLOSE_SVG } from './components.js';
 import { timeAgo, escapeHtml, getInitials, showToast } from './utils.js';
@@ -259,27 +259,49 @@ function renderPostCommentInput(user) {
 }
 
 function loadPostComments(postId) {
-  return onPostCommentsChange(postId, (comments) => {
+  return onPostCommentsChange(postId, async (comments) => {
     document.getElementById('post-comments-count').textContent = `${comments.length} Comment${comments.length !== 1 ? 's' : ''}`;
     const list = document.getElementById('post-comments-list');
     if (comments.length === 0) {
       list.innerHTML = '<p style="color:var(--text-secondary);font-size:14px;">No comments yet.</p>';
       return;
     }
+
+    // Batch-fetch commenter profiles for live PFPs
+    const uniqueUids = [...new Set(comments.map(c => c.userId).filter(Boolean))];
+    const profileMap = {};
+    await Promise.all(uniqueUids.map(async uid => {
+      try {
+        const profile = await getUserProfile(uid);
+        if (profile) profileMap[uid] = profile;
+      } catch {}
+    }));
+
     list.innerHTML = comments.map(c => {
-      const avatar = c.userPhoto
-        ? `<img src="${escapeHtml(c.userPhoto)}" alt="">`
-        : getInitials(c.userName);
+      const profile = profileMap[c.userId];
+      const livePhoto = profile?.photoURL || '';
+      const liveName = profile?.displayName || c.userName || 'Anonymous';
+      const avatar = livePhoto
+        ? `<img src="${escapeHtml(livePhoto)}" alt="">`
+        : getInitials(liveName);
+      const authorChannelId = resolveChannelId(c.userId);
       return `
         <div class="comment-item">
           <div class="comment-avatar">${avatar}</div>
           <div class="comment-body">
-            <span class="comment-author">${escapeHtml(c.userName)}</span>
+            <span class="comment-author" data-channel-id="${escapeHtml(authorChannelId)}" style="cursor:pointer;">${escapeHtml(liveName)}</span>
             <span class="comment-time">${timeAgo(c.createdAt)}</span>
             <div class="comment-text">${escapeHtml(c.text)}</div>
           </div>
         </div>
       `;
     }).join('');
+
+    // Make comment author names clickable
+    list.querySelectorAll('.comment-author[data-channel-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        window.location.hash = `#/channel/${el.dataset.channelId}`;
+      });
+    });
   });
 }

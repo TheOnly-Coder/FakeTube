@@ -101,12 +101,25 @@ export async function ensureUserRecord(uid) {
       createdAt: serverTimestamp()
     });
   } else {
-    // Sync currentUser with Firestore user doc (photoURL, displayName may
-    // differ from auth profile if the user edited their profile in-app).
     const data = snap.data();
-    if (data && !data.migratedTo && currentUser) {
-      if (data.photoURL !== undefined) currentUser.photoURL = data.photoURL;
-      if (data.displayName) currentUser.displayName = data.displayName;
+    if (data && currentUser) {
+      if (data.migratedTo) {
+        // For migrated users, the old doc is just a redirect pointer.
+        // Fetch the actual user doc at the migrated ID to sync profile.
+        try {
+          const redirect = await getDoc(doc(db, 'users', data.migratedTo));
+          if (redirect.exists()) {
+            const rd = redirect.data();
+            if (rd.photoURL !== undefined) currentUser.photoURL = rd.photoURL;
+            if (rd.displayName) currentUser.displayName = rd.displayName;
+          }
+        } catch {}
+      } else {
+        // Sync currentUser with Firestore user doc (photoURL, displayName may
+        // differ from auth profile if the user edited their profile in-app).
+        if (data.photoURL !== undefined) currentUser.photoURL = data.photoURL;
+        if (data.displayName) currentUser.displayName = data.displayName;
+      }
     }
   }
 }

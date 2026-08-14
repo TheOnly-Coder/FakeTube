@@ -1,4 +1,4 @@
-import { getUser, getVideosByUser, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost, migrateChannelId, deleteVideo } from './db.js';
+import { getUser, getVideosByUser, getVideosForChannel, getPostsByUser, createPost, toggleNotify, isNotifying, getSubscriberCount, updateUser, searchChannels, isPostStarred, deletePost, migrateChannelId, deleteVideo, invalidateProfileCache } from './db.js';
 import { getCurrentUser, logout } from './auth.js';
 import { videoCardHTML, setupVideoCardClicks, renderHeader, openAuthModal, closeAuthModal, CLOSE_SVG, BELL_SVG, BELL_OFF_SVG, STAR_SVG, STAR_OUTLINE_SVG } from './components.js';
 import { formatSubscribers, timeAgo, formatViews, escapeHtml, getInitials, showToast, sanitizeCssUrl, rateLimit } from './utils.js';
@@ -7,14 +7,14 @@ import { postCardHTML, setupPostCardActions } from './posts.js';
 export async function renderChannel(container, userId) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
-  const [channelUser, videos, posts] = await Promise.all([getUser(userId), getVideosByUser(userId), getPostsByUser(userId)]);
+  const [channelUser, videos, posts] = await Promise.all([getUser(userId), getVideosForChannel(userId), getPostsByUser(userId)]);
   if (!channelUser) {
     container.innerHTML = '<div class="empty-state"><h3>Channel not found</h3><a href="#/" class="btn btn-primary">Go Home</a></div>';
     return;
   }
 
   const me = getCurrentUser();
-  const isMe = me && (me.channelId === userId);
+  const isMe = me && (me.channelId === userId || me.uid === userId);
   let isNotified = false;
   if (!isMe && me) {
     try { isNotified = await isNotifying(userId); } catch {}
@@ -403,6 +403,9 @@ function openEditProfileModal(channelUser, pageContainer, userId) {
         me.displayName = name;
         me.photoURL = photo;
       }
+      // Invalidate cached profile so comments pick up the new PFP
+      invalidateProfileCache(userId);
+      invalidateProfileCache(me?.uid);
       modal.classList.add('hidden');
       showToast('Profile updated!');
       renderHeader();

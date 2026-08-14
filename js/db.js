@@ -85,6 +85,26 @@ export async function updateUser(uid, data) {
   await updateDoc(doc(db, 'users', uid), sanitized);
 }
 
+// ---- User Profile Photo Cache ----
+// Caches user profile lookups so comment sections don't refetch
+// the same user's photo on every render.
+const userProfileCache = {};
+
+/** Get a user's profile (following migration redirects), with caching. */
+export async function getUserProfile(uid) {
+  if (userProfileCache[uid]) return userProfileCache[uid];
+  const user = await getUser(uid);
+  if (user) {
+    userProfileCache[uid] = user;
+  }
+  return user;
+}
+
+/** Invalidate a single user's cached profile (e.g. after profile edit). */
+export function invalidateProfileCache(uid) {
+  delete userProfileCache[uid];
+}
+
 // ---- Videos ----
 export async function createVideo(videoData) {
   // Sanitize and validate video data before writing to Firestore
@@ -137,6 +157,42 @@ export async function getVideosByUser(uid, count = 50) {
   });
 }
 
+/**
+ * Get videos for a channel page, handling migrated channels.
+ * Queries both uploaderId (channel ID) AND uploaderUid (auth UID)
+ * to catch videos that may have been uploaded with either value.
+ * Deduplicates by video doc ID.
+ */
+export async function getVideosForChannel(channelId, count = 50) {
+  const [byChannelId, byUid] = await Promise.all([
+    withRetry(async () => {
+      const q = query(
+        collection(db, 'videos'),
+        where('uploaderId', '==', channelId),
+        orderBy('createdAt', 'desc'),
+        limit(count)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }).catch(() => []),
+    withRetry(async () => {
+      const q = query(
+        collection(db, 'videos'),
+        where('uploaderUid', '==', channelId),
+        orderBy('createdAt', 'desc'),
+        limit(count)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }).catch(() => [])
+  ]);
+  // Merge and deduplicate by doc ID, sort by newest first
+  const map = new Map();
+  for (const v of byChannelId) map.set(v.id, v);
+  for (const v of byUid) map.set(v.id, v);
+  return Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, count);
+}
+
 export async function incrementViews(videoId) {
   await updateDoc(doc(db, 'videos', videoId), {
     views: increment(1)
@@ -169,7 +225,10 @@ export async function addComment(videoId, text, user) {
     text: sanitizedText,
     userId: user.uid,
     userName: String(user.displayName || 'Anonymous').substring(0, 50),
-    userPhoto: String(user.photoURL || '').substring(0, 500),
+    // userPhoto is no longer stored — the browser loads it live from
+    // the commenter's user profile via their userId. Kept as empty string
+    // for backward compat with old comment rendering code.
+    userPhoto: '',
     createdAt: Date.now()
   });
   return ref.id;
