@@ -1,7 +1,7 @@
 import { getCurrentUser, ensureUserRecord } from './auth.js';
 import { openAuthModal } from './components.js';
 import { createVideo, getUser } from './db.js';
-import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast, validateVideoUrl, rateLimit } from './utils.js';
+import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast, validateVideoUrl, rateLimit, isYouTubeUrl, getYouTubeId, getYouTubeThumbnailUrl } from './utils.js';
 
 export function renderUpload(container) {
   const user = getCurrentUser();
@@ -71,9 +71,63 @@ export function renderUpload(container) {
       showUrlError('Please enter a video URL.');
       return;
     }
-    // Validate URL scheme — only http/https allowed
     if (!validateVideoUrl(url)) {
       showUrlError('Invalid URL scheme. Video URL must start with https:// or http://.');
+      return;
+    }
+
+    // YouTube URLs get special handling
+    if (isYouTubeUrl(url)) {
+      const ytId = getYouTubeId(url);
+      previewBtn.disabled = true;
+      previewBtn.textContent = 'Loading...';
+      urlError.style.display = 'none';
+
+      try {
+        // Fetch YouTube thumbnail (no CORS issues with img.youtube.com)
+        const thumbUrl = getYouTubeThumbnailUrl(ytId);
+        const thumbOk = await new Promise(resolve => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = thumbUrl;
+        });
+
+        if (thumbOk) {
+          // Draw to canvas to get a data URL we can store in Firestore
+          const canvas = document.createElement('canvas');
+          canvas.width = 640; canvas.height = 360;
+          const ctx = canvas.getContext('2d');
+          await new Promise(resolve => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => { ctx.drawImage(img, 0, 0, 640, 360); resolve(); };
+            img.onerror = resolve;
+            img.src = thumbUrl;
+          });
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          if (dataUrl.length > 100) {
+            thumbnailDataUrl = dataUrl;
+            thumbPreview.innerHTML = `<img src="${dataUrl}" alt="Thumbnail">`;
+          } else {
+            thumbnailDataUrl = '';
+            thumbPreview.innerHTML = `<img src="${thumbUrl}" alt="Thumbnail" onerror="this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dimmed);font-size:13px;\'>Could not load YouTube thumbnail.</div>'">`;
+          }
+        } else {
+          thumbnailDataUrl = '';
+          thumbPreview.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dimmed);font-size:13px;">Could not load YouTube thumbnail.</div>';
+        }
+
+        videoDuration = '';
+        previewArea.classList.remove('hidden');
+        checkSubmit();
+      } catch (err) {
+        showUrlError('Error loading YouTube video: ' + (err.message || 'Unknown error'));
+      }
+
+      previewBtn.disabled = false;
+      previewBtn.textContent = 'Preview & Generate Thumbnail';
       return;
     }
 

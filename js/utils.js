@@ -76,6 +76,32 @@ export function validateVideoUrl(url) {
 }
 
 /**
+ * Check if a URL is a YouTube video URL (youtube.com, youtu.be, shorts).
+ * Returns true for youtube.com/watch, /embed/, /shorts/, and youtu.be/ links.
+ */
+export function isYouTubeUrl(url) {
+  if (typeof url !== 'string') return false;
+  return /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/.test(url);
+}
+
+/**
+ * Extract the 11-char YouTube video ID from a URL.
+ * Returns null if not a valid YouTube URL.
+ */
+export function getYouTubeId(url) {
+  if (typeof url !== 'string') return null;
+  const m = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Get the highest-quality YouTube thumbnail URL for a video ID.
+ */
+export function getYouTubeThumbnailUrl(videoId) {
+  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+}
+
+/**
  * Simple client-side rate limiter.
  * Returns true if the action is allowed, false if rate-limited.
  * @param {string} key - localStorage key for this action type

@@ -1,6 +1,7 @@
 // FakeTube Service Worker
-// Fixes video playback for hosts that serve videos with wrong Content-Type
-// (e.g. GitHub Releases serves as application/octet-stream)
+// 1. Rewrites Content-Type for any video URL served with wrong MIME
+// 2. Provides a blob-proxy endpoint so the page can fetch cross-origin
+//    videos into RAM and play them as blob: URLs
 
 const VIDEO_MIME_MAP = {
   mp4: 'video/mp4',
@@ -14,6 +15,9 @@ const VIDEO_MIME_MAP = {
   m3u8: 'application/vnd.apple.mpegurl',
   ts: 'video/mp2t',
 };
+
+// Maximum file size for blob proxy (200 MB)
+const MAX_BLOB_PROXY_SIZE = 200 * 1024 * 1024;
 
 function getExtensionFromUrl(url) {
   try {
@@ -34,60 +38,137 @@ function getMimeFromDisposition(header) {
   return VIDEO_MIME_MAP[ext] || null;
 }
 
-function isVideoRequest(request) {
-  // Only intercept GET requests that look like video fetches
-  if (request.method !== 'GET') return false;
-  const url = request.url;
-  // GitHub release assets CDN
+/**
+ * Check if a URL looks like it points to a video file.
+ * Matches by file extension (.mp4, .webm, etc.) OR known CDN hosts.
+ */
+function looksLikeVideoUrl(url) {
+  const ext = getExtensionFromUrl(url);
+  if (ext && VIDEO_MIME_MAP[ext]) return true;
+  // GitHub release CDNs
   if (url.includes('release-assets.githubusercontent.com')) return true;
-  // objects.githubusercontent.com (older release CDN)
   if (url.includes('objects.githubusercontent.com')) return true;
   return false;
 }
 
-self.addEventListener('fetch', (event) => {
-  if (!isVideoRequest(event.request)) return;
+// ======================
+// 1. Content-Type rewriter for <video> element requests
+// ======================
+function handleVideoContentTypeFix(request) {
+  return fetch(request).then((response) => {
+    // Determine correct MIME from Content-Disposition filename or URL extension
+    const dispMime = getMimeFromDisposition(response.headers.get('Content-Disposition'));
+    const urlExt = getExtensionFromUrl(request.url);
+    const urlMime = urlExt ? (VIDEO_MIME_MAP[urlExt] || null) : null;
+    const correctMime = dispMime || urlMime;
 
-  // Let the browser handle it normally first; only rewrite if we detect
-  // a likely wrong Content-Type. We do this by fetching the response
-  // ourselves and checking the Content-Type.
-  event.respondWith(
-    fetch(event.request).then((response) => {
-      // Determine the correct MIME type from the URL or Content-Disposition
-      const dispMime = getMimeFromDisposition(response.headers.get('Content-Disposition'));
-      const urlMime = (() => {
-        const ext = getExtensionFromUrl(event.request.url);
-        return ext ? (VIDEO_MIME_MAP[ext] || null) : null;
-      })();
-      const correctMime = dispMime || urlMime;
+    if (!correctMime) return response;
 
-      if (!correctMime) return response; // Can't determine type, pass through
+    const currentType = (response.headers.get('Content-Type') || '').split(';')[0].trim();
+    if (currentType.startsWith('video/') || currentType === 'application/vnd.apple.mpegurl') {
+      return response; // Already correct
+    }
 
-      const currentType = response.headers.get('Content-Type') || '';
-      // If the server already returns a video MIME, no fix needed
-      if (currentType.startsWith('video/') || currentType.startsWith('application/vnd.apple.mpegurl')) {
-        return response;
-      }
+    const newHeaders = new Headers(response.headers);
+    newHeaders.set('Content-Type', correctMime);
+    newHeaders.delete('Content-Disposition');
 
-      // Build new headers: copy all from original, fix Content-Type,
-      // remove Content-Disposition (so browser doesn't try to download)
-      const newHeaders = new Headers(response.headers);
-      newHeaders.set('Content-Type', correctMime);
-      // Remove Content-Disposition to prevent the browser from downloading
-      // instead of playing the video inline
-      newHeaders.delete('Content-Disposition');
+    return new Response(response.body, {
+      status: response.status || 200,
+      statusText: response.statusText || 'OK',
+      headers: newHeaders,
+    });
+  });
+}
 
-      // Create a new response with the corrected headers.
-      // The body stream is passed through without reading — the browser
-      // consumes it directly.
-      return new Response(response.body, {
-        status: response.status || 200,
-        statusText: response.statusText || 'OK',
-        headers: newHeaders,
+// ======================
+// 2. Blob proxy endpoint
+// The page fetches same-origin URL like:
+//   ./__sw_blob_proxy__?url=<encoded-video-url>&ext=mp4
+// SW fetches the cross-origin video, wraps it in a same-origin Response
+// so the page can call .blob() and create a blob: URL.
+// ======================
+function handleBlobProxy(request) {
+  const url = new URL(request.url);
+  const targetUrl = url.searchParams.get('url');
+  if (!targetUrl) {
+    return new Response(JSON.stringify({ error: 'Missing url parameter' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Validate protocol
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return new Response(JSON.stringify({ error: 'Invalid protocol' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
       });
-    }).catch((err) => {
-      console.warn('SW: fetch failed, falling back to browser default:', err);
-      return fetch(event.request);
-    })
-  );
+    }
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid URL' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Determine MIME type
+  const extParam = url.searchParams.get('ext');
+  const urlExt = getExtensionFromUrl(targetUrl);
+  const ext = (extParam || urlExt || 'mp4').toLowerCase();
+  const mimeType = VIDEO_MIME_MAP[ext] || 'video/mp4';
+
+  return fetch(targetUrl, { mode: 'no-cors' }).then((response) => {
+    // Check Content-Length if available (opaque response may not expose it)
+    const contentLength = response.headers.get('Content-Length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_BLOB_PROXY_SIZE) {
+      return new Response(JSON.stringify({ error: 'File too large for RAM playback' }), {
+        status: 413, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Also try to get MIME from Content-Disposition
+    const dispMime = getMimeFromDisposition(response.headers.get('Content-Disposition'));
+    const finalMime = dispMime || mimeType;
+
+    const headers = new Headers();
+    headers.set('Content-Type', finalMime);
+    // Expose Content-Length so the page can show download progress
+    if (contentLength) headers.set('X-Content-Length', contentLength);
+
+    return new Response(response.body, {
+      status: 200,
+      statusText: 'OK',
+      headers,
+    });
+  }).catch((err) => {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 502, headers: { 'Content-Type': 'application/json' }
+    });
+  });
+}
+
+// ======================
+// Main fetch handler
+// ======================
+self.addEventListener('fetch', (event) => {
+  const reqUrl = event.request.url;
+
+  // Blob proxy endpoint (same-origin request from the page)
+  if (reqUrl.includes('__sw_blob_proxy__')) {
+    event.respondWith(handleBlobProxy(event.request));
+    return;
+  }
+
+  // Content-Type fix: only intercept GET requests to URLs that look like
+  // video files and are NOT same-origin (we only fix cross-origin hosts)
+  if (event.request.method === 'GET' && looksLikeVideoUrl(reqUrl)) {
+    try {
+      const reqOrigin = new URL(reqUrl).origin;
+      const pageOrigin = self.location.origin;
+      if (reqOrigin !== pageOrigin) {
+        event.respondWith(handleVideoContentTypeFix(event.request));
+        return;
+      }
+    } catch {}
+  }
 });
