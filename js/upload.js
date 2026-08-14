@@ -33,6 +33,12 @@ export function renderUpload(container) {
           <button class="btn btn-outline" id="preview-btn" style="margin-top:8px;">Preview & Generate Thumbnail</button>
           <p id="url-error" style="color:var(--accent-red);font-size:13px;margin-top:4px;display:none;"></p>
         </div>
+        <div class="upload-url-section" style="margin-top:16px;">
+          <label style="font-size:14px;font-weight:500;margin-bottom:6px;display:block;">Custom Thumbnail URL <span style="color:var(--text-dimmed);font-weight:400;">(optional)</span></label>
+          <input type="url" id="custom-thumb-url" placeholder="https://example.com/thumbnail.jpg" style="width:100%;font-size:14px;">
+          <button class="btn btn-outline" id="load-thumb-btn" style="margin-top:8px;">Load Custom Thumbnail</button>
+          <p id="thumb-error" style="color:var(--accent-red);font-size:13px;margin-top:4px;display:none;"></p>
+        </div>
         <div id="preview-area" class="hidden">
           <div class="upload-preview">
             <div class="upload-thumbnail-preview" id="thumb-preview">
@@ -64,6 +70,66 @@ export function renderUpload(container) {
   const submitBtn = document.getElementById('upload-submit-btn');
   const thumbPreview = document.getElementById('thumb-preview');
   const urlError = document.getElementById('url-error');
+  const customThumbInput = document.getElementById('custom-thumb-url');
+  const loadThumbBtn = document.getElementById('load-thumb-btn');
+  const thumbError = document.getElementById('thumb-error');
+
+  // Custom thumbnail URL loader
+  function showThumbError(msg) {
+    thumbError.textContent = msg;
+    thumbError.style.display = 'block';
+  }
+
+  loadThumbBtn.addEventListener('click', async () => {
+    const imgUrl = customThumbInput.value.trim();
+    if (!imgUrl) {
+      showThumbError('Please enter an image URL.');
+      return;
+    }
+    try { new URL(imgUrl); } catch { showThumbError('Invalid URL.'); return; }
+
+    loadThumbBtn.disabled = true;
+    loadThumbBtn.textContent = 'Loading...';
+    thumbError.style.display = 'none';
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = 640; c.height = 360;
+          const ctx = c.getContext('2d');
+          try {
+            ctx.drawImage(img, 0, 0, 640, 360);
+            const du = c.toDataURL('image/jpeg', 0.7);
+            resolve(du.length > 100 ? du : null);
+          } catch {
+            // CORS blocked — store the raw URL as-is
+            resolve(null);
+          }
+        };
+        img.onerror = () => reject(new Error('Could not load image.'));
+        img.src = imgUrl;
+      });
+
+      if (dataUrl) {
+        thumbnailDataUrl = dataUrl;
+        thumbPreview.innerHTML = `<img src="${dataUrl}" alt="Thumbnail">`;
+      } else {
+        // CORS blocked canvas — store raw URL directly
+        thumbnailDataUrl = imgUrl;
+        thumbPreview.innerHTML = `<img src="${imgUrl}" alt="Thumbnail" onerror="this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dimmed);font-size:13px;\'>Failed to load image.</div>'">`;
+      }
+      previewArea.classList.remove('hidden');
+      checkSubmit();
+    } catch (err) {
+      showThumbError(err.message || 'Failed to load thumbnail image.');
+    }
+
+    loadThumbBtn.disabled = false;
+    loadThumbBtn.textContent = 'Load Custom Thumbnail';
+  });
 
   previewBtn.addEventListener('click', async () => {
     const url = urlInput.value.trim();
@@ -196,6 +262,7 @@ export function renderUpload(container) {
     document.getElementById('video-tags').value = '';
     thumbnailDataUrl = '';
     videoDuration = '';
+    customThumbInput.value = '';
     submitBtn.disabled = true;
   });
 
