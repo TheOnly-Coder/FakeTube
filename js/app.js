@@ -259,10 +259,10 @@ async function bootstrap() {
 
   // Auth listener
   onAuthChange(async (user) => {
-    renderHeader();
     if (user) {
       try { await ensureUserRecord(user.uid); } catch (e) { console.warn('Failed to ensure user record:', e); }
     }
+    renderHeader();
   });
 
   renderHeader();
