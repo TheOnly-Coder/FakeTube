@@ -2398,50 +2398,21 @@ img {
   margin-top: 40px;
   margin-bottom: 24px;
 }
-.games-title {
-  font-size: 20px;
+.games-banner-btn {
+  display: inline-block;
+  padding: 10px 28px;
+  background: #f60;
+  color: #fff;
+  font-size: 16px;
   font-weight: 600;
-  color: #f1f1f1;
-  margin-bottom: 16px;
-}
-.games-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-}
-.game-tile {
+  border-radius: 50px;
   text-decoration: none;
-  display: block;
-  border-radius: 12px;
-  overflow: hidden;
-  transition: transform 0.15s ease;
+  transition: background 0.15s, transform 0.15s;
 }
-.game-tile:hover {
-  transform: scale(1.03);
-}
-.game-tile-image {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16/9;
-  overflow: hidden;
-  background: #272727;
-}
-.game-tile-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.game-tile-title {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px 12px 10px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.8));
-  color: #f1f1f1;
-  font-size: 14px;
-  font-weight: 600;
+.games-banner-btn:hover {
+  background: #e05a00;
+  transform: scale(1.04);
+  text-decoration: none;
 }
 
 /* ── Game Page ── */

@@ -6,15 +6,7 @@ import { postCardHTML, setupPostCardActions } from './posts.js';
 function gamesSectionHTML() {
   return `
     <div class="games-section">
-      <h2 class="games-title">Games</h2>
-      <div class="games-grid">
-        <a href="#/Games/FlappyBird" class="game-tile">
-          <div class="game-tile-image">
-            <img src="games/flappybird/flappybird.jpeg" alt="Flappy Bird" loading="lazy">
-            <div class="game-tile-title">Flappy Bird</div>
-          </div>
-        </a>
-      </div>
+      <a href="#/Games" class="games-banner-btn">Games</a>
     </div>
   `;
 }
