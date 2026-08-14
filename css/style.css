@@ -2361,3 +2361,97 @@ img {
     min-height: 44px;
   }
 }
+
+/* ── Games Section ── */
+.games-section {
+  margin-top: 40px;
+  margin-bottom: 24px;
+}
+.games-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #f1f1f1;
+  margin-bottom: 16px;
+}
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.game-tile {
+  text-decoration: none;
+  display: block;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+.game-tile:hover {
+  transform: scale(1.03);
+}
+.game-tile-image {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: #272727;
+}
+.game-tile-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.game-tile-title {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 12px 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  color: #f1f1f1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── Game Page ── */
+.game-page {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: center;
+}
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.game-page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #f1f1f1;
+}
+.game-canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  background: #000;
+  border-radius: 12px;
+  padding: 16px;
+  overflow: hidden;
+}
+.game-canvas-wrapper canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.game-instructions {
+  color: #aaa;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+  .game-canvas-wrapper {
+    padding: 8px;
+    border-radius: 8px;
+  }
+}
