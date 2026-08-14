@@ -56,9 +56,7 @@ export async function renderWatch(container, videoId) {
     <div class="watch-page">
       <div class="watch-primary">
         <div class="video-player-container">
-          <video id="video-player" controls preload="metadata">
-            <source src="${escapeHtml(video.videoUrl)}">
-          </video>
+          <video id="video-player" controls preload="metadata"></video>
           <div id="video-error-fallback" class="hidden">
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:32px;">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="#aaa"><path d="M12,2L1,21h22L12,2z M12,6l7.53,13H4.47L12,6z"/><rect x="11" y="10" width="2" height="4"/><rect x="11" y="16" width="2" height="2"/></svg>
@@ -121,12 +119,10 @@ export async function renderWatch(container, videoId) {
   document.getElementById('sidebar-videos').innerHTML = sidebarVideos.map(v => sidebarVideoCardHTML(v)).join('');
   setupVideoCardClicks(document.getElementById('sidebar-videos'));
 
-  // Video player error handling — show fallback UI when the browser
-  // can't play the video (wrong MIME type, CORS, or non-video response
-  // from hosts like Google Drive).
-  // Note: <source> is used WITHOUT a type attribute so the browser
-  // probes the actual content instead of rejecting based on MIME type
-  // mismatch (fixes GitHub Releases which serve as application/octet-stream).
+  // Video player — set src directly (no <source> element) so the browser
+  // probes the actual file bytes instead of rejecting based on the server's
+  // Content-Type header. This fixes GitHub Releases (served as
+  // application/octet-stream) while still falling back for non-video hosts.
   const videoEl = document.getElementById('video-player');
   const fallback = document.getElementById('video-error-fallback');
   if (videoEl) {
@@ -138,23 +134,20 @@ export async function renderWatch(container, videoId) {
       videoEl.style.display = 'none';
       fallback.classList.remove('hidden');
     };
-    // Listen for error on the <video> element itself
     videoEl.addEventListener('error', () => {
       if (videoEl.error) showFallback();
     });
-    // Also listen on <source> elements — some browsers fire the error
-    // on the <source> rather than the <video> when MIME sniffing fails.
-    const sourceEl = videoEl.querySelector('source');
-    if (sourceEl) {
-      sourceEl.addEventListener('error', showFallback);
-    }
-    // Fallback timer: if after 6s the video hasn't loaded any data,
-    // assume it's unplayable and show the fallback.
+    // Set src in JS so there's no <source> element that can fire
+    // premature errors before the browser sniffs the actual content.
+    videoEl.src = video.videoUrl;
+    // Fallback timer: if after 8s the video hasn't loaded any data,
+    // assume it's unplayable and show the fallback (catches Google Drive
+    // HTML responses that don't trigger a proper error event).
     setTimeout(() => {
       if (!fallbackShown && videoEl.readyState === 0) {
         showFallback();
       }
-    }, 6000);
+    }, 8000);
   }
 
   // Channel link clicks
