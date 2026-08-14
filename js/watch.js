@@ -1,7 +1,7 @@
 import { getVideo, incrementViews, getComments, addComment, toggleNotify, isNotifying, getVideos, getSubscriberCount, onCommentsChange, getUserProfile, resolveChannelId } from './db.js';
 import { getCurrentUser, onAuthChange } from './auth.js';
 import { videoCardHTML, sidebarVideoCardHTML, setupVideoCardClicks, openAuthModal, BELL_SVG, BELL_OFF_SVG, THUMB_UP_SVG, THUMB_DOWN_SVG, CHEVRON_UP_SVG, CHEVRON_DOWN_SVG, SEND_SVG } from './components.js';
-import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials, recordVideoWatch, rateLimit, validateVideoUrl, isYouTubeUrl, getYouTubeId, showToast } from './utils.js';
+import { formatViews, formatSubscribers, timeAgo, escapeHtml, getInitials, recordVideoWatch, rateLimit, validateVideoUrl, isYouTubeUrl, getYouTubeId, getVimeoId, showToast } from './utils.js';
 
 let unsubscribeComments = null;
 
@@ -50,12 +50,18 @@ export async function renderWatch(container, videoId) {
   const ytId = getYouTubeId(video.videoUrl);
   const isYouTube = !!ytId;
 
+  // Detect Vimeo URLs — use iframe embed
+  const vimeoId = isYouTube ? null : getVimeoId(video.videoUrl);
+  const isVimeo = !!vimeoId;
+
   container.innerHTML = `
     <div class="watch-page">
       <div class="watch-primary">
         <div class="video-player-container" id="player-container">
           ${isYouTube
-            ? `<iframe id="youtube-embed" src="https://www.youtube.com/embed/${ytId}?rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%;height:100%;position:absolute;top:0;left:0;"></iframe>`
+            ? `<iframe id="youtube-embed" src="https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1&showinfo=0&iv_load_policy=3&disablekb=1&playsinline=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%;height:100%;position:absolute;top:0;left:0;"></iframe>`
+            : isVimeo
+            ? `<iframe id="vimeo-embed" src="https://player.vimeo.com/video/${vimeoId}?badge=0&byline=0&portrait=0&title=0" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="width:100%;height:100%;position:absolute;top:0;left:0;"></iframe>`
             : `<video id="video-player" controls preload="metadata"></video>`
           }
           <div id="video-error-fallback" class="hidden">
@@ -126,8 +132,8 @@ export async function renderWatch(container, videoId) {
   document.getElementById('sidebar-videos').innerHTML = sidebarVideos.map(v => sidebarVideoCardHTML(v)).join('');
   setupVideoCardClicks(document.getElementById('sidebar-videos'));
 
-  // YouTube embeds need no further player logic
-  if (!isYouTube) {
+  // YouTube and Vimeo embeds need no further player logic
+  if (!isYouTube && !isVimeo) {
     setupVideoPlayer(video.videoUrl);
   }
 

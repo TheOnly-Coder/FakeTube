@@ -45,9 +45,36 @@ function getMimeFromDisposition(header) {
 function looksLikeVideoUrl(url) {
   const ext = getExtensionFromUrl(url);
   if (ext && VIDEO_MIME_MAP[ext]) return true;
-  // GitHub release CDNs
-  if (url.includes('release-assets.githubusercontent.com')) return true;
-  if (url.includes('objects.githubusercontent.com')) return true;
+
+  // Known video CDN / hosting patterns
+  const VIDEO_HOST_PATTERNS = [
+    // GitHub
+    'release-assets.githubusercontent.com',
+    'objects.githubusercontent.com',
+    // Cloud storage / CDNs
+    'blob.core.windows.net',
+    's3.amazonaws.com',
+    '.cloudfront.net',
+    'r2.cloudflarestorage.com',
+    'storage.googleapis.com',
+    // Social / misc video hosts
+    'v.redd.it',
+    'video.twimg.com',
+    'cdn.discordapp.com',
+    'clips.twitch.tv',
+    'player.twitch.tv',
+    'cvphlvjdvtdvd.cloudimg.io',
+    'streamable.com',
+    // Generic CDN patterns
+    'cdn-','.akamaized.net',
+    '.b-cdn.net',
+    '.fastly.net',
+  ];
+
+  const lower = url.toLowerCase();
+  for (const pattern of VIDEO_HOST_PATTERNS) {
+    if (lower.includes(pattern)) return true;
+  }
   return false;
 }
 

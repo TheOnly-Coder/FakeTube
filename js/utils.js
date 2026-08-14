@@ -102,6 +102,25 @@ export function getYouTubeThumbnailUrl(videoId) {
 }
 
 /**
+ * Check if a URL is a Vimeo video URL.
+ */
+export function isVimeoUrl(url) {
+  if (typeof url !== 'string') return false;
+  return /(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(?:[0-9]+|video\/)/.test(url);
+}
+
+/**
+ * Extract the Vimeo video ID from a URL.
+ * Returns null if not a valid Vimeo URL.
+ */
+export function getVimeoId(url) {
+  if (typeof url !== 'string') return null;
+  // vimeo.com/123456 or vimeo.com/video/123456
+  const m = url.match(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(?:video\/)?(\d+)/);
+  return m ? m[1] : null;
+}
+
+/**
  * Simple client-side rate limiter.
  * Returns true if the action is allowed, false if rate-limited.
  * @param {string} key - localStorage key for this action type
