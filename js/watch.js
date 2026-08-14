@@ -121,8 +121,8 @@ export async function renderWatch(container, videoId) {
 
   // Video player — set src directly (no <source> element) so the browser
   // probes the actual file bytes instead of rejecting based on the server's
-  // Content-Type header. This fixes GitHub Releases (served as
-  // application/octet-stream) while still falling back for non-video hosts.
+  // Content-Type header. The Service Worker (sw.js) intercepts responses
+  // from hosts like GitHub Releases and rewrites Content-Type to video/mp4.
   const videoEl = document.getElementById('video-player');
   const fallback = document.getElementById('video-error-fallback');
   if (videoEl) {
@@ -134,20 +134,47 @@ export async function renderWatch(container, videoId) {
       videoEl.style.display = 'none';
       fallback.classList.remove('hidden');
     };
-    videoEl.addEventListener('error', () => {
-      if (videoEl.error) showFallback();
-    });
-    // Set src in JS so there's no <source> element that can fire
-    // premature errors before the browser sniffs the actual content.
-    videoEl.src = video.videoUrl;
-    // Fallback timer: if after 8s the video hasn't loaded any data,
-    // assume it's unplayable and show the fallback (catches Google Drive
-    // HTML responses that don't trigger a proper error event).
+    const tryPlayVideo = () => {
+      videoEl.src = video.videoUrl;
+    };
+    const onVideoError = () => {
+      if (videoEl.error) {
+        // If we haven't retried yet and a SW is now controlling the page,
+        // retry once — the SW can fix the Content-Type.
+        if (!videoEl._swRetried && navigator.serviceWorker && navigator.serviceWorker.controller) {
+          videoEl._swRetried = true;
+          console.warn('Video error — retrying with active Service Worker');
+          videoEl.removeEventListener('error', onVideoError);
+          videoEl.src = '';
+          tryPlayVideo();
+          videoEl.addEventListener('error', onVideoError);
+          return;
+        }
+        showFallback();
+      }
+    };
+    videoEl.addEventListener('error', onVideoError);
+    // If a Service Worker just installed/activated while we're on this
+    // page, it can now intercept future fetches. Reload the video so
+    // the SW can fix the Content-Type.
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!fallbackShown && videoEl.readyState === 0) {
+          console.log('SW controller changed — reloading video');
+          videoEl.src = '';
+          tryPlayVideo();
+        }
+      });
+    }
+    tryPlayVideo();
+    // Fallback timer: if after 12s the video hasn't loaded any data,
+    // assume it's unplayable and show the fallback (catches hosts that
+    // return HTML instead of video, e.g. Google Drive).
     setTimeout(() => {
       if (!fallbackShown && videoEl.readyState === 0) {
         showFallback();
       }
-    }, 8000);
+    }, 12000);
   }
 
   // Channel link clicks
