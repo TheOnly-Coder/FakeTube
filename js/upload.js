@@ -195,21 +195,39 @@ export function renderUpload(container) {
 function testVideoUrl(url) {
   return new Promise((resolve) => {
     const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
+    // Do NOT set crossOrigin='anonymous' here. Many video hosts (GitHub
+    // Releases, Google Drive, etc.) don't send CORS headers. The video
+    // will still play fine in a <video> tag — we only need CORS for
+    // canvas thumbnail extraction, which is handled separately.
     video.preload = 'metadata';
     const timer = setTimeout(() => {
-      video.src = '';
-      // Even if metadata doesn't load due to CORS, the video might still play
+      video.removeAttribute('src');
+      video.load();
+      // Timeout doesn't mean failure — large files or slow hosts may
+      // just need more time. The video can still play once loaded on
+      // the watch page.
       resolve(true);
     }, 8000);
     video.onloadedmetadata = () => {
       clearTimeout(timer);
-      URL.revokeObjectURL(video.src);
       resolve(true);
     };
     video.onerror = () => {
       clearTimeout(timer);
-      resolve(false);
+      // Distinguish network errors (real failure) from CORS blocks
+      // (which still mean the video URL is valid and playable).
+      // If the error code is not MEDIA_ERR_SRC_NOT_SUPPORTED, the URL
+      // is probably fine but CORS blocked metadata access.
+      const isNetworkError = video.error && video.error.code === MediaError.MEDIA_ERR_NETWORK;
+      const isDecodeError = video.error && video.error.code === MediaError.MEDIA_ERR_DECODE;
+      if (isNetworkError) {
+        resolve(false);
+      } else {
+        // SRC_NOT_SUPPORTED or no error code — likely CORS or format
+        // issue. Be optimistic: the video may still play on the watch page
+        // where crossOrigin is not set.
+        resolve(true);
+      }
     };
     video.src = url;
   });
