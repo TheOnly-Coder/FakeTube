@@ -3,6 +3,22 @@ import { setupVideoCardClicks } from './components.js';
 import { formatViews, timeAgo, escapeHtml, getInitials, getRecommendedVideos } from './utils.js';
 import { postCardHTML, setupPostCardActions } from './posts.js';
 
+function gamesSectionHTML() {
+  return `
+    <div class="games-section">
+      <h2 class="games-title">Games</h2>
+      <div class="games-grid">
+        <a href="#/Games/FlappyBird" class="game-tile">
+          <div class="game-tile-image">
+            <img src="games/flappybird/flappybird.jpeg" alt="Flappy Bird" loading="lazy">
+            <div class="game-tile-title">Flappy Bird</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  `;
+}
+
 export async function renderHome(container, searchTerm) {
   container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
@@ -24,6 +40,7 @@ export async function renderHome(container, searchTerm) {
         <p style="max-width:450px;margin:0 auto 16px;">This usually means Firestore hasn't been set up yet. Check the setup guide for instructions.</p>
         <a href="#/how-to-upload" class="btn btn-primary">How to get started</a>
       </div>
+      ${gamesSectionHTML()}
     `;
     return;
   }
@@ -39,6 +56,7 @@ export async function renderHome(container, searchTerm) {
           <p>Be the first to share a video!</p>
           <a href="#/how-to-upload" class="btn btn-primary">Learn how to upload</a>
         </div>
+        ${gamesSectionHTML()}
       `;
       return;
     }
@@ -95,19 +113,7 @@ export async function renderHome(container, searchTerm) {
 
   // Games section (only on main feed, not search)
   if (!searchTerm) {
-    html += `
-      <div class="games-section">
-        <h2 class="games-title">Games</h2>
-        <div class="games-grid">
-          <a href="#/Games/FlappyBird" class="game-tile">
-            <div class="game-tile-image">
-              <img src="games/flappybird/flappybird.jpeg" alt="Flappy Bird" loading="lazy">
-              <div class="game-tile-title">Flappy Bird</div>
-            </div>
-          </a>
-        </div>
-      </div>
-    `;
+    html += gamesSectionHTML();
   }
 
   html += '</div>';
