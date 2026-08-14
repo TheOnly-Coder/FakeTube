@@ -451,7 +451,8 @@ function renderPostsPane(postsPane, posts, isMe, me, channelId) {
       try {
         const postId = await createPost({
           content: text,
-          channelId: me.channelId || me.uid,
+          // Firestore rule requires channelId == auth.uid exactly.
+          channelId: me.uid,
           channelName: me.displayName,
           channelPhoto: me.photoURL || ''
         });
