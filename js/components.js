@@ -66,8 +66,8 @@ export function renderHeader() {
         <a href="#/channel/${user.channelId || user.uid}" class="user-avatar-btn" title="${escapeHtml(user.displayName)}">
           ${user.photoURL 
             ? `<img src="${escapeHtml(user.photoURL)}" alt="${escapeHtml(user.displayName)}">` 
-            : getInitials(user.displayName)}
-          <span style="color:#f1f1f1;font-size:13px;margin-left:6px;white-space:nowrap;">My Profile</span>
+            : `<span>${getInitials(user.displayName)}</span>`}
+          <span style="color:#f1f1f1;font-size:13px;white-space:nowrap;">My Profile</span>
         </a>
       ` : `
         <button class="btn btn-outline" id="sign-in-btn">Sign in</button>

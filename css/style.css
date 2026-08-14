@@ -418,6 +418,26 @@ img {
 }
 
 .user-avatar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+.user-avatar-btn:hover {
+  opacity: 0.8;
+  text-decoration: none;
+}
+.user-avatar-btn img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.user-avatar-btn > span:first-child {
+  /* initials fallback when no pfp */
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -428,19 +448,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
-  transition: opacity var(--transition-fast);
-  overflow: hidden;
   flex-shrink: 0;
-}
-.user-avatar-btn:hover {
-  opacity: 0.8;
-  text-decoration: none;
-}
-.user-avatar-btn img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .user-menu {
