@@ -7,6 +7,7 @@ import { initializeAppCheck, getToken, ReCaptchaV3Provider } from 'firebase/app-
 const firebaseConfig = {
   apiKey: "AIzaSyAj9nZ6XGnK_VdGeqHg47QpN8dt1T2C3zQ",
   authDomain: "faketube-d10ee.firebaseapp.com",
+  databaseURL: "https://faketube-d10ee-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "faketube-d10ee",
   storageBucket: "faketube-d10ee.firebasestorage.app",
   messagingSenderId: "926439479138",
