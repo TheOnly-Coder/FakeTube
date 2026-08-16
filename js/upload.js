@@ -144,6 +144,16 @@ export function renderUpload(container) {
       return;
     }
 
+    // Warn about share page URLs that return HTML, not video files
+    if (/jottacloud\.com\/s\//i.test(url)) {
+      showUrlError('That\'s a Jottacloud share page, not a direct file link. Right-click the download button on the share page and copy that link instead.');
+      return;
+    }
+    if (/drive\.google\.com\/file/i.test(url) && !/download/i.test(url)) {
+      showUrlError('Google Drive share links don\'t work directly. Use "File > Share > Copy link" and append ?download=1 or use a direct download link.');
+      return;
+    }
+
     // YouTube URLs get special handling
     if (isYouTubeUrl(url)) {
       const ytId = getYouTubeId(url);
