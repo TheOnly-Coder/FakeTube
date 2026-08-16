@@ -2,6 +2,8 @@ import { getCurrentUser, ensureUserRecord } from './auth.js';
 import { openAuthModal } from './components.js';
 import { createVideo, getUser } from './db.js';
 import { generateThumbnailFromUrl, getVideoDurationFromUrl, showToast, validateVideoUrl, rateLimit, isYouTubeUrl, getYouTubeId, getYouTubeThumbnailUrl } from './utils.js';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase-config.js';
 
 export function renderUpload(container) {
   const user = getCurrentUser();
@@ -314,6 +316,17 @@ export function renderUpload(container) {
         thumbnailUrl: thumbnailDataUrl,
         duration: videoDuration
       });
+
+      // Stamp lastUploadAt on user doc for server-side rate limiting.
+      // The Firestore rule checks this against request.time (server clock)
+      // so scripts cannot bypass the 30s cooldown.
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          lastUploadAt: serverTimestamp()
+        });
+      } catch (e) {
+        console.warn('Failed to stamp lastUploadAt:', e);
+      }
 
       showToast('Video published!');
       window.location.hash = `#/watch/${videoId}`;
