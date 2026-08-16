@@ -6,7 +6,7 @@ import {
   updateProfile, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { resolveChannelId } from './db.js';
 import { showToast, rateLimit } from './utils.js';
 
@@ -91,15 +91,17 @@ export async function logout() {
 export async function ensureUserRecord(uid) {
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) {
-    const user = auth.currentUser;
-    await setDoc(doc(db, 'users', uid), {
-      displayName: user?.displayName || 'Anonymous',
-      email: user?.email || '',
-      photoURL: user?.photoURL || '',
-      bio: '',
-      subscriberCount: 0,
-      createdAt: serverTimestamp()
-    });
+    // Don't create the doc here — signup() handles that with the real
+    // displayName.  This function is also called from the auth listener
+    // which fires BEFORE signup() has finished updateProfile()+setDoc(),
+    // so auth.currentUser.displayName may still be null.  Creating the
+    // doc with a fallback name caused a race condition (see "Anonymous" bug).
+    //
+    // If the doc is genuinely missing (signup's setDoc failed), the next
+    // signup attempt or a profile-edit page can create it properly.
+    console.warn('ensureUserRecord: user doc does not exist yet for', uid,
+      '— skipping auto-creation to avoid race condition with signup().');
+    return;
   } else {
     const data = snap.data();
     if (data && currentUser) {
