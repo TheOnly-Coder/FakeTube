@@ -179,10 +179,139 @@ function handleBlobProxy(request) {
 }
 
 // ======================
+// 3. Share-page URL resolver
+// Some hosts (Jottacloud, etc.) give share page URLs (/s/xxx)
+// that return HTML, not the video file. This endpoint fetches the
+// page (cors mode) and extracts the direct download link.
+//
+//   ./__sw_resolve_url__?url=<encoded-share-url>
+//
+// Returns JSON: { resolvedUrl: "..." } or { error: "..." }
+// ======================
+function handleResolveUrl(request) {
+  const url = new URL(request.url);
+  const targetUrl = url.searchParams.get('url');
+  if (!targetUrl) {
+    return new Response(JSON.stringify({ error: 'Missing url parameter' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return new Response(JSON.stringify({ error: 'Invalid protocol' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid URL' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  return fetch(targetUrl, {
+    mode: 'cors',
+    redirect: 'follow',
+    headers: { 'Accept': 'text/html,application/json,*/*' }
+  }).then(response => {
+    // If the final URL (after redirects) looks like a video file, use it
+    const finalUrl = response.url || response.url;
+    if (finalUrl && finalUrl !== targetUrl) {
+      const ext = getExtensionFromUrl(finalUrl);
+      if (ext && VIDEO_MIME_MAP[ext]) {
+        return new Response(JSON.stringify({ resolvedUrl: finalUrl }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // If the response is already a video (not HTML), return its URL
+    const ct = (response.headers.get('Content-Type') || '').split(';')[0].trim();
+    if (ct.startsWith('video/') || ct.startsWith('application/octet-stream')) {
+      return new Response(JSON.stringify({ resolvedUrl: finalUrl || targetUrl }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Parse HTML for download links
+    return response.text().then(html => {
+      // Strategy 1: links ending in video extensions
+      const vidExtPattern = /href=["']((https?:\/\/[^"'<>]+\.(?:mp4|webm|ogg|ogv|mov|mkv|m4v))(?:[?][^"'<>]*)?)["']/gi;
+      const vidMatch = vidExtPattern.exec(html);
+      if (vidMatch) {
+        return new Response(JSON.stringify({ resolvedUrl: vidMatch[1] }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Strategy 2: links with /d/ path (common download pattern)
+      const dlPattern = /href=["']((https?:\/\/[^"'<>]+\/d\/[^"'<>]+\.(?:mp4|webm|ogg|mov|mkv|m4v|avi))["']/gi;
+      const dlMatch = dlPattern.exec(html);
+      if (dlMatch) {
+        return new Response(JSON.stringify({ resolvedUrl: dlMatch[1] }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Strategy 3: any <a> containing download-related words near an href
+      const dlWordPattern = /href=["']((https?:\/\/[^"'<>]+))["'][^>]*>(?:[^<]*?(?:download|save|file|get)[^<]*?)<\/a>/gi;
+      const dlWordMatch = dlWordPattern.exec(html);
+      if (dlWordMatch) {
+        const candidate = dlWordMatch[1];
+        // Only accept if it looks different from the share URL
+        if (candidate !== targetUrl) {
+          return new Response(JSON.stringify({ resolvedUrl: candidate }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // Strategy 4: meta refresh redirect
+      const metaPattern = /<meta[^>]+http-equiv=["']refresh["'][^>]+content=["'][^"']*url=([^"' >]+)/i;
+      const metaMatch = metaPattern.exec(html);
+      if (metaMatch) {
+        return new Response(JSON.stringify({ resolvedUrl: metaMatch[1].trim() }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Strategy 5: JavaScript location assignment or window.open
+      const jsPattern = /(?:location\.href|location\s*=|window\.location\s*=|window\.open)\s*\(["']([^"']+)/g;
+      let jsMatch;
+      while ((jsMatch = jsPattern.exec(html)) !== null) {
+        const candidate = jsMatch[1];
+        const ext = getExtensionFromUrl(candidate);
+        if (ext && VIDEO_MIME_MAP[ext]) {
+          return new Response(JSON.stringify({ resolvedUrl: candidate }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({ error: 'Could not find a download link on that page' }), {
+        status: 404, headers: { 'Content-Type': 'application/json' }
+      });
+    });
+  }).catch(err => {
+    return new Response(JSON.stringify({
+      error: 'Cannot fetch that page (CORS blocked or network error). Try getting the direct download link from the share page instead.'
+    }), {
+      status: 502, headers: { 'Content-Type': 'application/json' }
+    });
+  });
+}
+
+// ======================
 // Main fetch handler
 // ======================
 self.addEventListener('fetch', (event) => {
   const reqUrl = event.request.url;
+
+  // Share-page URL resolver
+  if (reqUrl.includes('__sw_resolve_url__')) {
+    event.respondWith(handleResolveUrl(event.request));
+    return;
+  }
 
   // Blob proxy endpoint (same-origin request from the page)
   if (reqUrl.includes('__sw_blob_proxy__')) {

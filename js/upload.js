@@ -145,9 +145,34 @@ export function renderUpload(container) {
     }
 
     // Warn about share page URLs that return HTML, not video files
+    // Try to auto-resolve them via the service worker first
     if (/jottacloud\.com\/s\//i.test(url)) {
-      showUrlError('That\'s a Jottacloud share page, not a direct file link. Right-click the download button on the share page and copy that link instead.');
-      return;
+      previewBtn.disabled = true;
+      previewBtn.textContent = 'Resolving link...';
+      urlError.style.display = 'none';
+
+      try {
+        const res = await fetch(`./__sw_resolve_url__?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data.resolvedUrl) {
+          // Replace the share URL with the resolved direct link
+          urlInput.value = data.resolvedUrl;
+          url = data.resolvedUrl; // use resolved URL for preview
+          showUrlError('');
+          urlError.style.display = 'none';
+          // Fall through to normal preview flow with the resolved URL
+        } else {
+          showUrlError(data.error || 'Could not resolve Jottacloud link. Open the share page, go to Network tab (F12), click Download, and copy the request URL.');
+          previewBtn.disabled = false;
+          previewBtn.textContent = 'Preview & Generate Thumbnail';
+          return;
+        }
+      } catch (e) {
+        showUrlError('Could not resolve that link automatically. Open the share page, go to Network tab (F12), click Download, and copy the request URL.');
+        previewBtn.disabled = false;
+        previewBtn.textContent = 'Preview & Generate Thumbnail';
+        return;
+      }
     }
     if (/drive\.google\.com\/file/i.test(url) && !/download/i.test(url)) {
       showUrlError('Google Drive share links don\'t work directly. Use "File > Share > Copy link" and append ?download=1 or use a direct download link.');
