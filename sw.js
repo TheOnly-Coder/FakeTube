@@ -68,6 +68,7 @@ function looksLikeVideoUrl(url) {
     // File hosting
     'files.catbox.moe',
     'litterbox.catbox.moe',
+    'jottacloud.com',
     // Generic CDN patterns
     'cdn-','.akamaized.net',
     '.b-cdn.net',
