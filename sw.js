@@ -65,6 +65,9 @@ function looksLikeVideoUrl(url) {
     'player.twitch.tv',
     'cvphlvjdvtdvd.cloudimg.io',
     'streamable.com',
+    // File hosting
+    'files.catbox.moe',
+    'litterbox.catbox.moe',
     // Generic CDN patterns
     'cdn-','.akamaized.net',
     '.b-cdn.net',

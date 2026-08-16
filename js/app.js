@@ -108,6 +108,21 @@ function renderTutorial(container) {
         </p>
       </div>
 
+      <div style="background:#272727;border-radius:12px;padding:24px;margin-bottom:24px;">
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:#f1f1f1;">
+          <span style="background:#3ea6ff;color:#0f0f0f;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;">?</span>
+          Alternative: Catbox (easy, no account needed)
+        </h2>
+        <p style="color:#aaa;line-height:1.7;margin-bottom:12px;">
+          Go to <a href="https://catbox.moe/" target="_blank" rel="noopener noreferrer" style="color:#3ea6ff;">catbox.moe</a>, upload your MP4, and copy the direct link it gives you (ends in .mp4). Paste it straight into FakeTube. No account required, links are permanent.
+        </p>
+        <div style="background:#0f0f0f;border-radius:8px;padding:16px;border-left:3px solid #3ea6ff;">
+          <p style="font-size:13px;color:#aaa;margin:0;">
+            <strong style="color:#f1f1f1;">Tip:</strong> For temporary uploads (1h, 12h, 24h, 72h), use <a href="https://litterbox.catbox.moe/" target="_blank" rel="noopener noreferrer" style="color:#3ea6ff;">litterbox.catbox.moe</a> instead. The links expire after the time you choose.
+          </p>
+        </div>
+      </div>
+
       <div style="text-align:center;margin-top:32px;">
         <a href="#/upload" class="btn btn-primary" style="padding:12px 32px;font-size:16px;">Share a Video</a>
       </div>
