@@ -2397,6 +2397,9 @@ img {
 .games-section {
   margin-top: 40px;
   margin-bottom: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .games-banner-btn {
   display: inline-block;
@@ -2413,6 +2416,12 @@ img {
   background: #e05a00;
   transform: scale(1.04);
   text-decoration: none;
+}
+.projects-btn {
+  background: #7c3aed;
+}
+.projects-btn:hover {
+  background: #6d28d9;
 }
 
 /* ── Game Page ── */

@@ -7,6 +7,7 @@ function gamesSectionHTML() {
   return `
     <div class="games-section">
       <a href="#/Games" class="games-banner-btn">Games</a>
+      <a href="https://theonly-coder.github.io/landing/" target="_blank" rel="noopener noreferrer" class="games-banner-btn projects-btn">My Other Projects</a>
     </div>
   `;
 }
