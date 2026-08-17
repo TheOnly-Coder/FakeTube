@@ -214,9 +214,7 @@ const GAMES_LIST = [
     title: 'micropolisJS',
     description: 'The classic SimCity experience rebuilt entirely in JavaScript. Manage zones, power, and traffic.',
     category: 'simulation',
-    type: 'external',
-    url: 'https://www.graememcc.co.uk/micropolisJS/',
-    source: 'https://github.com/graememcc/micropolisJS',
+    type: 'local',
     tileColor: '#0f2b0f',
     tileIcon: '🏘️',
   },
@@ -339,6 +337,11 @@ async function renderGamePage(container, gameId) {
   if (gameKey === 'particleclicker') {
     const { renderParticleClicker } = await import('./games/particleclicker.js');
     renderParticleClicker(container);
+    return;
+  }
+  if (gameKey === 'micropolisjs') {
+    const { renderMicropolisJS } = await import('./games/micropolisjs.js');
+    renderMicropolisJS(container);
     return;
   }
 
