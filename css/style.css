@@ -2517,3 +2517,146 @@ img {
   color: #aaa;
   line-height: 1.4;
 }
+
+/* ── Games Hub: Categorized Layout ── */
+.games-hub-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+.games-hub-hero {
+  margin-bottom: 32px;
+}
+.games-hub-hero h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f1f1f1;
+  margin: 0 0 6px;
+}
+.games-hub-hero p {
+  color: #aaa;
+  margin: 0;
+  font-size: 15px;
+}
+.games-category-section {
+  margin-bottom: 36px;
+}
+.games-category-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.games-category-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+}
+.games-category-line {
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+  min-width: 40px;
+}
+.games-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* Colored tile placeholder for external games */
+.game-tile-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  user-select: none;
+}
+
+/* ── External Game Iframe Player ── */
+.game-back-btn {
+  color: #aaa;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.game-back-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #f1f1f1;
+  text-decoration: none;
+}
+.game-external-link {
+  color: #3ea6ff;
+  text-decoration: none;
+  font-size: 20px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.game-external-link:hover {
+  background: rgba(62,166,255,0.12);
+  text-decoration: none;
+}
+.game-iframe-wrapper {
+  flex: 1;
+  position: relative;
+  background: #000;
+  min-height: 0;
+  overflow: hidden;
+}
+.game-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+.game-iframe-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #aaa;
+  font-size: 15px;
+  background: #181818;
+  text-align: center;
+  padding: 24px;
+}
+.game-source-link {
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  flex-shrink: 0;
+}
+.game-source-link a {
+  color: #555;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.game-source-link a:hover {
+  color: #3ea6ff;
+}
+
+@media (max-width: 768px) {
+  .games-category-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+}
+@media (max-width: 480px) {
+  .games-hub-page {
+    padding: 16px 12px 40px;
+  }
+  .games-category-grid {
+    grid-template-columns: 1fr;
+  }
+}

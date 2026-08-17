@@ -131,63 +131,290 @@ function renderTutorial(container) {
 }
 
 // --- Games Hub (no Firebase needed) ---
+// Category order controls the section order on the hub page
+const GAME_CATEGORIES = [
+  { id: 'local',    label: 'Built-in Games',    color: '#f60' },
+  { id: 'strategy', label: 'Strategy',           color: '#3ea6ff' },
+  { id: 'simulation', label: 'City Builders',     color: '#2ecc71' },
+  { id: 'puzzle',   label: 'Puzzle',             color: '#f1c40f' },
+  { id: 'platformer', label: 'Platformers',       color: '#e74c3c' },
+  { id: 'action',   label: 'Action & Arcade',    color: '#e056fd' },
+  { id: 'racing',   label: 'Racing',             color: '#00cec9' },
+];
+
 const GAMES_LIST = [
+  // ── Built-in (local canvas games) ──
   {
     id: 'flappybird',
     title: 'Flappy Bird',
     description: 'The classic side-scrolling game. Tap to flap through pipes!',
     tileImage: 'games/flappybird/flappybird.jpeg',
+    category: 'local',
+    type: 'local',
   },
   {
     id: 'particleclicker',
     title: 'Particle Clicker',
     description: 'An addictive incremental game about particle physics research.',
     tileImage: 'games/particleclicker/tile.jpg',
+    category: 'local',
+    type: 'local',
+  },
+
+  // ── Strategy ──
+  {
+    id: 'ancient-beast',
+    title: 'Ancient Beast',
+    description: 'Turn-based strategy with creatures that evolve and fight. Play online against others.',
+    category: 'strategy',
+    type: 'external',
+    url: 'https://play.ancientbeast.com/',
+    source: 'https://github.com/FreezingMoon/AncientBeast',
+    tileColor: '#1a3a2a',
+    tileIcon: '🐉',
+  },
+  {
+    id: 'zero-k',
+    title: 'Zero-K',
+    description: 'Massive RTS battles with hundreds of units. Free, open-source, and runs in your browser.',
+    category: 'strategy',
+    type: 'external',
+    url: 'https://zero-k.info/',
+    source: 'https://github.com/ZeroK-RTS/Zero-K',
+    tileColor: '#0d1f0d',
+    tileIcon: '⚔️',
+  },
+  {
+    id: 'mindustry',
+    title: 'Mindustry',
+    description: 'Factory automation meets tower defense. Build production chains and defend your base.',
+    category: 'strategy',
+    type: 'external',
+    url: 'https://mindustrygame.github.io/',
+    itchEmbedId: '140169',
+    source: 'https://github.com/Anuken/Mindustry',
+    tileColor: '#1a1a2e',
+    tileIcon: '🏭',
+  },
+
+  // ── City Builders & Simulation ──
+  {
+    id: 'isocity',
+    title: 'IsoCity',
+    description: 'Isometric city builder right in your browser. Place zones and watch your metropolis grow.',
+    category: 'simulation',
+    type: 'external',
+    url: 'https://iso-city.com/',
+    source: 'https://github.com/amilich/isometric-city',
+    tileColor: '#0a2540',
+    tileIcon: '🏙️',
+  },
+  {
+    id: 'micropolisjs',
+    title: 'micropolisJS',
+    description: 'The classic SimCity experience rebuilt entirely in JavaScript. Manage zones, power, and traffic.',
+    category: 'simulation',
+    type: 'external',
+    url: 'https://www.graememcc.co.uk/micropolisJS/',
+    source: 'https://github.com/graememcc/micropolisJS',
+    tileColor: '#0f2b0f',
+    tileIcon: '🏘️',
+  },
+
+  // ── Puzzle ──
+  {
+    id: 'whatajong',
+    title: 'Whatajong',
+    description: 'A relaxing Mahjong solitaire game. Match tiles to clear the board.',
+    category: 'puzzle',
+    type: 'external',
+    url: 'https://vitellus.itch.io/whatajong',
+    source: 'https://github.com/nicholasgasior/whatajong',
+    tileColor: '#2d1f0e',
+    tileIcon: '🀄',
+  },
+
+  // ── Platformers ──
+  {
+    id: 'vvvvvv',
+    title: 'VVVVVV',
+    description: 'Flip gravity to navigate through treacherous rooms. A modern retro platformer classic.',
+    category: 'platformer',
+    type: 'external',
+    url: 'https://terrycavanagh.itch.io/vvvvvv',
+    source: 'https://github.com/TerryCavanagh/VVVVVV',
+    tileColor: '#2d0a3e',
+    tileIcon: '🌀',
+  },
+
+  // ── Action & Arcade ──
+  {
+    id: 'openlara',
+    title: 'OpenLara',
+    description: 'Classic Tomb Raider engine in your browser with WebGL. Explore ancient tombs in 3D.',
+    category: 'action',
+    type: 'external',
+    url: 'https://xproger.space/projects/OpenLara/',
+    source: 'https://github.com/XProger/OpenLara',
+    tileColor: '#2a1a0a',
+    tileIcon: '🗿',
+  },
+
+  // ── Racing ──
+  {
+    id: 'dust-racing-2d',
+    title: 'Dust Racing 2D',
+    description: 'Top-down car racing with a track editor. Simple controls, fun gameplay.',
+    category: 'racing',
+    type: 'external',
+    url: 'https://juzzlin.github.io/DustRacing2D/',
+    source: 'https://github.com/juzzlin/DustRacing2D',
+    tileColor: '#1a0a0a',
+    tileIcon: '🏎️',
   },
 ];
 
 function renderGamesHub(container) {
-  const cards = GAMES_LIST.map(g => `
-    <a href="#/Games/${g.id}" class="game-tile-card" style="text-decoration:none;">
-      <div class="game-tile-img">
-        <img src="${g.tileImage}" alt="${g.title}" loading="lazy">
-      </div>
-      <div class="game-tile-info">
-        <h3>${g.title}</h3>
-        <p>${g.description}</p>
-      </div>
-    </a>
-  `).join('');
+  // Build cards per category, preserving category order
+  const categoriesWithGames = GAME_CATEGORIES
+    .map(cat => ({
+      ...cat,
+      games: GAMES_LIST.filter(g => g.category === cat.id),
+    }))
+    .filter(c => c.games.length > 0);
+
+  const sectionsHTML = categoriesWithGames.map(cat => {
+    const cards = cat.games.map(g => {
+      // Use image or colored tile with icon
+      const tileContent = g.tileImage
+        ? `<img src="${g.tileImage}" alt="${g.title}" loading="lazy">`
+        : `<div class="game-tile-placeholder" style="background:${g.tileColor || '#222'};"><span>${g.tileIcon || '?'}</span></div>`;
+
+      return `
+        <a href="#/Games/${g.id}" class="game-tile-card" style="text-decoration:none;">
+          <div class="game-tile-img">${tileContent}</div>
+          <div class="game-tile-info">
+            <h3>${g.title}</h3>
+            <p>${g.description}</p>
+          </div>
+        </a>
+      `;
+    }).join('');
+
+    return `
+      <section class="games-category-section">
+        <div class="games-category-header">
+          <h2 style="color:${cat.color}">${cat.label}</h2>
+          <div class="games-category-line" style="background:${cat.color}22"></div>
+        </div>
+        <div class="games-category-grid">
+          ${cards}
+        </div>
+      </section>
+    `;
+  }).join('');
 
   container.innerHTML = `
-    <div style="max-width:900px;margin:0 auto;padding:24px 16px;">
-      <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;color:#f1f1f1;">Games</h1>
-      <p style="color:#aaa;margin-bottom:24px;">Take a break and play something fun.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
-        ${cards}
+    <div class="games-hub-page">
+      <div class="games-hub-hero">
+        <h1>Games</h1>
+        <p>Take a break and play something fun. All games are open source.</p>
       </div>
+      ${sectionsHTML}
     </div>
   `;
 }
 
 // --- Game Pages (no Firebase needed) ---
 async function renderGamePage(container, gameId) {
+  const game = GAMES_LIST.find(g => g.id === gameId.toLowerCase());
   const gameKey = gameId.toLowerCase();
+
+  // Local canvas-based games
   if (gameKey === 'flappybird') {
     const { renderFlappyBird } = await import('./games/flappybird.js');
     renderFlappyBird(container);
-  } else if (gameKey === 'particleclicker') {
+    return;
+  }
+  if (gameKey === 'particleclicker') {
     const { renderParticleClicker } = await import('./games/particleclicker.js');
     renderParticleClicker(container);
-  } else {
-    const escapeHtml = await getEscapeHtml();
-    container.innerHTML = `
-      <div style="max-width:700px;margin:0 auto;text-align:center;">
-        <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;color:#f1f1f1;">${escapeHtml(gameId.replace(/-/g, ' '))}</h1>
-        <p style="color:#aaa;margin-bottom:32px;">This game hasn't been implemented yet. Check back later!</p>
-        <a href="#/Games" class="btn btn-primary">Back to Games</a>
+    return;
+  }
+
+  // External web games — embed via iframe
+  if (game && game.type === 'external') {
+    renderExternalGame(container, game);
+    return;
+  }
+
+  // Fallback
+  const escapeHtml = await getEscapeHtml();
+  container.innerHTML = `
+    <div style="max-width:700px;margin:0 auto;text-align:center;">
+      <h1 style="font-size:24px;font-weight:700;margin-bottom:16px;color:#f1f1f1;">${escapeHtml(gameId.replace(/-/g, ' '))}</h1>
+      <p style="color:#aaa;margin-bottom:32px;">This game hasn't been implemented yet. Check back later!</p>
+      <a href="#/Games" class="btn btn-primary">Back to Games</a>
+    </div>
+  `;
+}
+
+function renderExternalGame(container, game) {
+  // Build embed URL
+  let embedSrc = game.url;
+  if (game.itchEmbedId) {
+    embedSrc = `https://itch.io/embed/${game.itchEmbedId}`;
+  }
+
+  // Find category info for back link
+  const catInfo = GAME_CATEGORIES.find(c => c.id === game.category);
+
+  container.innerHTML = `
+    <div class="game-page">
+      <div class="game-header">
+        <a href="#/Games" class="game-back-btn">← Games</a>
+        <span class="game-page-title">${game.tileIcon || ''} ${game.title}</span>
+        <a href="${game.url}" target="_blank" rel="noopener noreferrer" class="game-external-link" title="Open in new tab">↗</a>
       </div>
-    `;
+      <div class="game-iframe-wrapper">
+        <iframe
+          src="${embedSrc}"
+          class="game-iframe"
+          allow="autoplay; fullscreen; gamepad; keyboard"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          loading="lazy"
+        ></iframe>
+        <div class="game-iframe-fallback" id="game-iframe-fallback" style="display:none;">
+          <p>This game can't be embedded here. </p>
+          <a href="${game.url}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Play on ${game.title} Website ↗</a>
+        </div>
+      </div>
+      ${game.source ? `<div class="game-source-link">Source: <a href="${game.source}" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>` : ''}
+    </div>
+  `;
+
+  // Detect iframe load failure (X-Frame-Options / CSP block)
+  const iframe = container.querySelector('.game-iframe');
+  const fallback = container.querySelector('.game-iframe-fallback');
+  if (iframe && fallback) {
+    iframe.addEventListener('error', () => {
+      iframe.style.display = 'none';
+      fallback.style.display = 'flex';
+    });
+    // Also set a timeout — if the iframe hasn't loaded anything visible after 8s, show fallback
+    setTimeout(() => {
+      try {
+        // If we can't access contentDocument, it's cross-origin and likely loaded fine
+        // If it's same-origin but empty, it failed
+        const doc = iframe.contentDocument;
+        if (doc && doc.body && doc.body.innerHTML === '') {
+          iframe.style.display = 'none';
+          fallback.style.display = 'flex';
+        }
+      } catch (e) {
+        // Cross-origin = loaded (good)
+      }
+    }, 8000);
   }
 }
 
